@@ -1,0 +1,157 @@
+Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = Wed 14 Aug 2013 14:14:14 CST
+
+BeginCmp
+TimeStamp = /520AAEA2;
+Reference = C1;
+ValeurCmp = 10uF;
+IdModule  = C1.5V8V;
+EndCmp
+
+BeginCmp
+TimeStamp = /520A9B69;
+Reference = D1;
+ValeurCmp = LED;
+IdModule  = LED-5MM;
+EndCmp
+
+BeginCmp
+TimeStamp = /520A9B78;
+Reference = D2;
+ValeurCmp = 1N4148;
+IdModule  = D3;
+EndCmp
+
+BeginCmp
+TimeStamp = /520AAB24;
+Reference = P1;
+ValeurCmp = CT;
+IdModule  = PIN_ARRAY_2X1;
+EndCmp
+
+BeginCmp
+TimeStamp = /520B3F25;
+Reference = P2;
+ValeurCmp = CONN_1;
+IdModule  = 1pin;
+EndCmp
+
+BeginCmp
+TimeStamp = /520B3F18;
+Reference = P3;
+ValeurCmp = CONN_1;
+IdModule  = 1pin;
+EndCmp
+
+BeginCmp
+TimeStamp = /520B3F06;
+Reference = P4;
+ValeurCmp = AC;
+IdModule  = PIN_ARRAY_2X1;
+EndCmp
+
+BeginCmp
+TimeStamp = /520B41A3;
+Reference = P5;
+ValeurCmp = CONN_1;
+IdModule  = 1pin;
+EndCmp
+
+BeginCmp
+TimeStamp = /520B41B0;
+Reference = P6;
+ValeurCmp = CONN_1;
+IdModule  = 1pin;
+EndCmp
+
+BeginCmp
+TimeStamp = /520B41B6;
+Reference = P7;
+ValeurCmp = CONN_1;
+IdModule  = 1pin;
+EndCmp
+
+BeginCmp
+TimeStamp = /520B41BC;
+Reference = P8;
+ValeurCmp = CONN_1;
+IdModule  = 1pin;
+EndCmp
+
+BeginCmp
+TimeStamp = /520B47A7;
+Reference = P9;
+ValeurCmp = CONN_2;
+IdModule  = PIN_ARRAY_2X1;
+EndCmp
+
+BeginCmp
+TimeStamp = /520A9B9A;
+Reference = Q1;
+ValeurCmp = 2N3904;
+IdModule  = TO92;
+EndCmp
+
+BeginCmp
+TimeStamp = /520AADC2;
+Reference = R1;
+ValeurCmp = 10K;
+IdModule  = R3;
+EndCmp
+
+BeginCmp
+TimeStamp = /520AADC8;
+Reference = R2;
+ValeurCmp = 10K;
+IdModule  = R3;
+EndCmp
+
+BeginCmp
+TimeStamp = /520AAB38;
+Reference = R3;
+ValeurCmp = 18 - 1%;
+IdModule  = PIN_ARRAY_3X1;
+EndCmp
+
+BeginCmp
+TimeStamp = /520AAAED;
+Reference = R4;
+ValeurCmp = 10K;
+IdModule  = R3;
+EndCmp
+
+BeginCmp
+TimeStamp = /520AA4F9;
+Reference = R5;
+ValeurCmp = 1K;
+IdModule  = R3;
+EndCmp
+
+BeginCmp
+TimeStamp = /520A9BDC;
+Reference = R6;
+ValeurCmp = 1K;
+IdModule  = R3;
+EndCmp
+
+BeginCmp
+TimeStamp = /520B3D6D;
+Reference = RE1;
+ValeurCmp = RELAY-JQX-15F;
+IdModule  = RELAY-JQX-15F;
+EndCmp
+
+BeginCmp
+TimeStamp = /520A9B3C;
+Reference = SW1;
+ValeurCmp = SPST;
+IdModule  = PIN_ARRAY_2X1;
+EndCmp
+
+BeginCmp
+TimeStamp = /5209DC68;
+Reference = U1;
+ValeurCmp = SPARK_CORE;
+IdModule  = SPARK_CORE;
+EndCmp
+
+EndListe
