@@ -1,0 +1,1294 @@
+#usage "<b>KiCAD module exporting tool  version 0.9d </b>\n"
+       "<p>"
+       "This ULP can exports Eagle CAD Package and Symbol contents into KiCAD lib and module format."
+       "<p>"
+       "Load any library from the library directory and execute the ULP."
+       "<p>"
+       "<author>Author: Dmitri N. Sytov sdn (at) openhardware.ru</author>"
+       "<author>Author: juergen.messerer (at) freesurf.ch</author>"
+/*
+ * CHANGELOG=(dd.mm.yyyy)===============================================
+ *
+ * 02.01.2012: Fixed BUGS: (that it is compatible with the new kicad versions)
+ *             Kicad "undefined draw command" 
+ *             Kicad "unexpected end of file / module" 
+ *
+ * 01.12.2006: Little changes on the script with DEV.package. Always check if
+ *             DEV.package exist otherwise an error will occure.
+ *
+ * 22.08.2006: - Changes made by Sergiusz Urbaniak (mieszkoman (at) gmx.de)
+ *             - Selection of export of Pin Names and Pin Numbers
+ *             - Prefixing each module with the Eagle library name (easier to navigate in the netlist)
+ *             - Support of multiple units
+ *
+ * 17.07.2006: The positions of the name and the prefix are fixed for multi part devices
+ *
+ * 17.07.2006: Now the script creates also devices without packages.
+ *             When a device has more then one part then it use symbol name
+ *             for the alias "F0, F1, .."
+ *             When it has more then one package then it use the device name
+ *
+ * 19.06.2006: Bugfix, devices with more then one packages will now generate 
+ *             a device for each package 
+ *
+ * 14.06.2006: Add the translation feature for multipart devices
+ *
+ * 12.06.2006: Fixed the arc problem. There is still a text position problem
+ *
+ * 08.06.2006: Now it converts also the symbol from eagle
+ *
+ * 14.11.2005: Fixed BUGS:
+ *		- Invalid layers in $PAD section
+ *		- Text fields has right coords but bad align
+ *		- Polygonal areas draws twice
+ *	     Thanks to:
+ *	     	Biglacko <biglacko (at) startolj.hu>	     	
+*/  
+
+/* ==========================================================================
+ * License: This file is released under the license of the GNU Public license
+ *          Version 2.
+ * ==========================================================================*/     	 
+
+real VERSION   = 0.9;
+    
+int rect_conv  = 1;	// many QFP-like packages use rectangles as a pin contour (too much segments in the ki-format)
+int poly_conv  = 1;
+int holes_conv = 1;
+
+string g_lib_prefix ;
+int writePins = 0;
+int drawPinnumber = 0;
+int drawPinname = 0;
+
+int RECT_WIDTH = 26;
+   
+// please edit this LUT if you found mistakes, 
+// and send your corrections to sdn (at) openhardware.ru.
+/*
+ LAYER_CMP_N		 15
+ CMP_N 			 15
+ NB_COPPER_LAYERS	 (CMP_N+1)
+ FIRST_NO_COPPER_LAYER 	 16
+ ADHESIVE_N_CU 		 16
+ ADHESIVE_N_CMP		 17
+ SOLDERPASTE_N_CU	 18
+ SOLDERPASTE_N_CMP	 19
+ SILKSCREEN_N_CU	 20
+ SILKSCREEN_N_CMP	 21
+ SOLDERMASK_N_CU	 22
+ SOLDERMASK_N_CMP	 23
+ DRAW_N			 24
+ COMMENT_N		 25
+ ECO1_N			 26
+ ECO2_N			 27
+ EDGE_N			 28
+*/
+
+// Lookup table for shape layers
+int layer_lut[] =
+{0,       
+ 15,		//LAYER_TOP 
+ 0,0,0,0,0,0,0,0,0,0,0,0,0,0, //inner layers
+ 16,		//LAYER_BOTTOM 
+ 16,		//LAYER_PADS 
+ 16,		//LAYER_VIAS 
+ 21,		//LAYER_UNROUTED 
+ 21,		//LAYER_DIMENSION 
+ 21,		//LAYER_TPLACE 
+ 21,		//LAYER_BPLACE 
+ 21,		//LAYER_TORIGINS 
+ 21,		//LAYER_BORIGINS 
+ 21,		//LAYER_TNAMES 
+ 21,		//LAYER_BNAMES 
+ 21,		//LAYER_TVALUES 
+ 21,		//LAYER_BVALUES 
+ 21,		//LAYER_TSTOP 
+ 21,		//LAYER_BSTOP 
+ 21,		//LAYER_TCREAM 
+ 21,		//LAYER_BCREAM 
+ 21,		//LAYER_TFINISH 
+ 21,		//LAYER_BFINISH 
+ 21,		//LAYER_TGLUE 
+ 21, 		//LAYER_BGLUE 
+ 21,		//LAYER_TTEST 
+ 21,		//LAYER_BTEST 
+ 21,		//LAYER_TKEEPOUT 
+ 21,		//LAYER_BKEEPOUT 
+ 21,		//LAYER_TRESTRICT 
+ 21,		//LAYER_BRESTRICT 
+ 21,		//LAYER_VRESTRICT 
+ 21,		//LAYER_DRILLS 
+ 21,		//LAYER_HOLES 
+ 21,		//LAYER_MILLING 
+ 21,		//LAYER_MEASURES 
+ 21,		//LAYER_DOCUMENT 
+ 21,		//LAYER_REFERENCE 
+ 21,		//LAYER_TDOCU 
+ 20,		//LAYER_BDOCU 
+ 21,		//LAYER_NETS 
+ 21,		//LAYER_BUSSES 
+ 21,		//LAYER_PINS 
+ 21,		//LAYER_SYMBOLS 
+ 21,		//LAYER_NAMES 
+ 21		//LAYER_VALUES 
+};
+
+// Lookup table for pad layers
+                                                                                                                   
+//CUIVRE_LAYER			0x00000001
+//CMP_LAYER			0x00008000    
+//ADHESIVE_LAYER_CU		0x00010000    
+//ADHESIVE_LAYER_CMP		0x00020000
+//SOLDERPASTE_LAYER_CU		0x00040000 
+//SOLDERPASTE_LAYER_CMP		0x00080000  
+//SILKSCREEN_LAYER_CU		0x00100000
+//SILKSCREEN_LAYER_CMP		0x00200000     
+//SOLDERMASK_LAYER_CU		0x00400000 
+//SOLDERMASK_LAYER_CMP    	0x00800000     
+//DRAW_LAYER			0x01000000  
+//COMMENT_LAYER			0x02000000       
+//ECO1_LAYER			0x04000000 
+//ECO2_LAYER			0x08000000 
+//EDGE_LAYER			0x10000000  
+//intS_LAYER			0xE0000000  
+//ALL_LAYERS			0x1FFFFFFF 
+//ALL_NO_CU_LAYERS		0x1FFF0000     
+//ALL_CU_LAYERS			0x0000FFFF  
+//INTERNAL_LAYERS		0x00007FFE            
+//EXTERNAL_LAYERS		0x00008001 
+
+int pad_lut[] =
+{0,
+ 0x00008000 | 0x00800000 | 0x00080000,			//LAYER_TOP
+ 0,0,0,0,0,0,0,0,0,0,0,0,0,0, 				//inner layers
+ 0x00000001 | 0x00400000,				//LAYER_BOTTOM 
+ 0x00008001 | 0x00A00000 | 0x00080000,			//LAYER_PADS 
+ 0x00008001 | 0x00800000 | 0x00400000,			//LAYER_VIAS 
+ 0,							//LAYER_UNROUTED 
+ 0,							//LAYER_DIMENSION 
+ 0,							//LAYER_TPLACE 
+ 0,							//LAYER_BPLACE 
+ 0,							//LAYER_TORIGINS 
+ 0,							//LAYER_BORIGINS 
+ 0,							//LAYER_TNAMES 
+ 0,							//LAYER_BNAMES 
+ 0,							//LAYER_TVALUES 
+ 0,							//LAYER_BVALUES 
+ 0,							//LAYER_TSTOP 
+ 0,							//LAYER_BSTOP 
+ 0,							//LAYER_TCREAM 
+ 0,							//LAYER_BCREAM 
+ 0,							//LAYER_TFINISH 
+ 0,							//LAYER_BFINISH 
+ 0,							//LAYER_TGLUE 
+ 0, 							//LAYER_BGLUE 
+ 0,							//LAYER_TTEST 
+ 0,							//LAYER_BTEST 
+ 0,							//LAYER_TKEEPOUT 
+ 0,							//LAYER_BKEEPOUT 
+ 0,							//LAYER_TRESTRICT 
+ 0,							//LAYER_BRESTRICT 
+ 0,							//LAYER_VRESTRICT 
+ 0x01000000 ,						//LAYER_DRILLS 
+ 0x01000000 ,						//LAYER_HOLES 
+ 0x01000000 ,						//LAYER_MILLING 
+ 0,							//LAYER_MEASURES 
+ 0,							//LAYER_DOCUMENT 
+ 0,							//LAYER_REFERENCE 
+ 0,							//LAYER_TDOCU 
+ 0,							//LAYER_BDOCU 
+ 0,							//LAYER_NETS 
+ 0,							//LAYER_BUSSES 
+ 0x00008001 | 0x00A00000 | 0x00080000,			//LAYER_PINS 
+ 0,							//LAYER_SYMBOLS 
+ 0,							//LAYER_NAMES 
+ 0 							//LAYER_VALUES 
+};
+
+ 
+//------------------------------------------------------
+// utils
+//------------------------------------------------------
+
+int layer_lookup(int layer)
+{
+  if(layer > 42) return 21;
+  return layer_lut[layer+1];
+}
+
+//Units conversion routine | 1.0 inch = 10000 Ki-units | 
+int egl2ki(int units)
+{
+  real inch = u2inch(units);
+  return int(inch*10000);
+}
+
+// check for smd pads in package
+int issmd(UL_PACKAGE PAC)
+{
+ int res = 0;
+  
+ PAC.contacts(C)
+ {
+   res |= C.smd?1:0;
+ }
+ return res;
+
+}
+
+
+//------------------------------------------------------
+//write index of modules
+//------------------------------------------------------
+void write_kikad_mod_idx(UL_LIBRARY LIB)
+{
+
+    // write INDEX start tag
+    printf("$INDEX\n");
+    
+    // write index of modules
+    LIB.packages(PAC) printf("%s-%s\n", g_lib_prefix, strupr(PAC.name));
+  
+    // write INDEX end tag
+    printf("$EndINDEX\n");
+
+}
+
+//------------------------------------------------------
+// pad conversion
+//------------------------------------------------------
+void write_kikad_mod_pad(UL_PACKAGE PAC)
+{
+	char shp = 'R'; 
+	string signal, type = "STD";
+	int dx, dy, drill, layset;
+	
+  PAC.contacts(CN)
+  {
+    // write PAD start tag
+    printf("$PAD\n");
+
+    signal = CN.signal;
+      
+    if(CN.smd)
+    {      
+      type = "SMD";
+	  
+      if(CN.smd.roundness > 40) 
+      {
+        if(CN.smd.dx == CN.smd.dy) 
+           shp = 'C';
+        else 
+          shp = 'O';
+      }
+      dx = CN.smd.dx;
+      dy = CN.smd.dy;
+      layset = CN.smd.layer;
+    }
+      
+    if(CN.pad)
+    {  
+		
+	  type = "STD";
+	  if(CN.pad.shape[LAYER_TOP] == PAD_SHAPE_ROUND ) 
+	  {
+	    shp = 'C';	 
+ 	    dy = CN.pad.diameter[LAYER_TOP];
+	  }
+	  if(CN.pad.shape[LAYER_TOP] == PAD_SHAPE_OCTAGON)
+	  {
+		shp = 'C';	
+		dy = CN.pad.diameter[LAYER_TOP] * 2;
+	  }
+	  if(CN.pad.shape[LAYER_TOP] == PAD_SHAPE_LONG ) 
+	  {
+		shp = 'O';
+		dy = CN.pad.diameter[LAYER_TOP] * 2;
+	  }
+
+	  	dx = CN.pad.diameter[LAYER_TOP];
+		drill = CN.pad.drill;
+		layset = LAYER_PADS ;
+
+	}
+
+          // pad shape
+	  printf("Sh \"%s\" %c %d %d %d %d %d\n",
+	  CN.name, shp, egl2ki(dx), egl2ki(dy), 0, 0, 0);
+	  
+	  printf("Dr %d %d %d \n", egl2ki(drill), 0, 0);
+	  
+	  printf("At %s N %08X\n", type, pad_lut[layset]);
+	  
+	  printf("Ne 0 \"%s\"\n", signal);
+	  
+	  printf("Po %d %d \n", egl2ki(CN.x), -egl2ki(CN.y));
+    
+	
+      
+    // write PAD end tag
+      printf("$EndPAD\n");
+    }
+  
+}
+
+
+//------------------------------------------------------
+// shape conversion
+//------------------------------------------------------
+void write_kicad_mod_shapes(UL_PACKAGE PAC)
+{
+
+    //writing shapes
+    //also we must convert inverted y-coordinates (take it with minus)  
+    //
+    //segments (always from eagle's rectangles,wires and optional polygons)
+
+    // converting rectangles -------------------------------------------------------------
+     int layer;
+     
+   if(rect_conv) 
+      PAC.rectangles(R)
+    {	
+	 layer =  layer_lookup(R.layer); 
+
+	 printf("DS %d %d %d %d %d %d\n",
+	  egl2ki(R.x1), -egl2ki(R.y1), egl2ki(R.x2), -egl2ki(R.y1), RECT_WIDTH, layer);
+	 printf("DS %d %d %d %d %d %d\n",
+	  egl2ki(R.x2), -egl2ki(R.y1), egl2ki(R.x2), -egl2ki(R.y2), RECT_WIDTH, layer);
+	 printf("DS %d %d %d %d %d %d\n",
+	  egl2ki(R.x1), -egl2ki(R.y2), egl2ki(R.x2), -egl2ki(R.y2), RECT_WIDTH, layer);
+	 printf("DS %d %d %d %d %d %d\n",
+	  egl2ki(R.x1), -egl2ki(R.y1), egl2ki(R.x1), -egl2ki(R.y2), RECT_WIDTH, layer);
+    }
+    
+    // converting wires---------------------------------------------------------------------
+      PAC.wires(W)
+    {	
+	 layer =  layer_lookup(W.layer); 
+
+	 if(!W.arc)
+	 printf("DS %d %d %d %d %d %d\n",
+	  egl2ki(W.x1), -egl2ki(W.y1), egl2ki(W.x2), -egl2ki(W.y2), egl2ki(W.width), layer);
+    }
+  
+     // polygons converting ------------------------------------------------------------------
+   if(poly_conv) 
+    PAC.polygons(P)
+    {
+	    
+	P.contours(CONT)
+	{
+	 layer = layer_lookup(CONT.layer); 
+	
+	 printf("DS %d %d %d %d %d %d\n",
+	  egl2ki(CONT.x1), -egl2ki(CONT.y1), egl2ki(CONT.x2), -egl2ki(CONT.y2), egl2ki(CONT.width), layer);
+   	}
+// draws twice, fixed.	
+//	P.wires(W) {
+//	 printf("DS %d %d %d %d %d %d\n",  
+//	 egl2ki(W.x1), egl2ki(W.y1), egl2ki(W.x2), egl2ki(W.y2), egl2ki(W.width), layer);
+//	}
+    	
+    }
+
+
+      
+    //circles (always from eagle's circles and optional from holes)
+
+    //converting circles --------------------------------------------------------------------
+    PAC.circles(C)
+    {
+
+	layer = layer_lookup(C.layer); 
+	    
+	 printf("DC %d %d %d %d %d %d\n", egl2ki(C.x) , -egl2ki(C.y) , 
+	 egl2ki(C.x) + ((egl2ki(C.x)>0)?1:(-1)) *  egl2ki(C.radius/2), 
+	 -egl2ki(C.y) - ((egl2ki(C.y)>0)?1:(-1)) * egl2ki(C.radius/2), egl2ki(C.width/2), layer);
+    }
+   if(holes_conv)    
+    PAC.holes(H)
+    {
+
+	layer = 21; 
+	    
+	 printf("DC %d %d %d %d %d %d\n",
+	 egl2ki(H.x), -egl2ki(H.y),
+	 egl2ki(H.x) + ((egl2ki(H.x)>0)?1:(-1)) * egl2ki(H.drill/4),
+	 -egl2ki(H.y) - ((egl2ki(H.y)>0)?1:(-1)) * egl2ki(H.drill/4),
+	 50, layer);
+
+	 printf("DS %d %d %d %d %d %d\n",
+	 egl2ki(H.x - (H.drill/2)), -egl2ki(H.y),
+	 egl2ki(H.x + (H.drill/2)), -egl2ki(H.y), 50, layer);
+
+	 printf("DS %d %d %d %d %d %d\n",
+	 egl2ki(H.x), -egl2ki(H.y - (H.drill/2)),
+	 egl2ki(H.x), -egl2ki(H.y + (H.drill/2)), 50, layer);
+    }
+
+    
+    
+    //converting (always from wires)arcs ----------------------------------------------------	
+    
+    PAC.wires(W)
+    {
+	if(W.arc)
+	{
+
+	 layer = layer_lookup(W.layer); 
+		    
+	 printf("DA %d %d %d %d %d %d %d \n",
+	  egl2ki(W.arc.xc ), -egl2ki(W.arc.yc), 
+	  egl2ki(W.arc.x2), -egl2ki(W.arc.y2), 
+	  int((360 + abs(W.curve))*10) ,
+	  egl2ki(W.arc.width), layer);
+	}
+    }
+
+}
+
+
+//------------------------------------------------------
+// field conversion
+//------------------------------------------------------
+void write_kicad_mod_text(UL_PACKAGE PAC)
+{
+ 	int textnum = 0;
+	int xoffs, yoffs,size;
+	string text;
+	
+    PAC.texts(T){
+	    size = egl2ki(T.size );
+	  switch(int(T.angle)){
+	  	case 0:
+	 	 xoffs = (T.size * strlen(T.value))/2;
+	 	 yoffs = T.size/2;
+		break;
+		
+	  	case 90:
+	  	 xoffs = -T.size/2;
+	  	 yoffs = (T.size * strlen(T.value))/2;
+		break;
+
+	  	case 180:
+	  	 xoffs = -(T.size * strlen(T.value))/2;
+	   	 yoffs = -T.size/2;
+		break;
+
+	  	case 270:
+	 	 xoffs = (T.size/2);
+		 yoffs = -(T.size * strlen(T.value))/2;
+	 	break;
+
+	  }  
+	  printf("T%d %d %d %d %d %d %d N V \"%s\"\n",
+	  textnum, egl2ki(T.x + xoffs), -egl2ki(T.y + yoffs), 
+	  size, size,
+	  int((abs(T.angle))*10), 35, T.value);
+	  textnum++;
+   }
+}
+
+//------------------------------------------------------
+// Mod body conversion
+//------------------------------------------------------
+void write_kikad_mod_body(UL_LIBRARY LIB)
+{
+  //for all packages in library
+  LIB.packages(PAC)
+  {
+    // write MODULE start tag
+    printf("$MODULE %s-%s\n", g_lib_prefix, strupr(PAC.name));	
+
+    //write module position
+    printf("Po %d %d %d %d 00200000 00000000 ~~\n", 
+	0, // what's it?
+	0, // and here?
+	0, // orient 
+	15 // layer
+	);
+
+    //write name & description
+    printf("Li %s-%s\n", g_lib_prefix, strupr(PAC.name));  
+    printf("Cd %s\n", strupr(PAC.headline));
+    printf("Kw %s\n", strupr(PAC.headline));
+
+    //write timestamp
+    printf("Sc 00000000\n"); 
+    
+    //write orientation
+    printf("Op 0 0 0\n");  	
+
+    //write attributes
+    printf("At %s\n", issmd(PAC) ? "SMD" : "VIRTUAL");
+
+    write_kicad_mod_shapes(PAC);
+    write_kicad_mod_text(PAC);
+    // write module pads	
+    write_kikad_mod_pad(PAC);
+
+    // write MODULE end tag
+    printf("$EndMODULE %s\n", strupr(PAC.name));
+  }
+}
+
+
+//------------------------------------------------------
+//ki-format high-level writing functions
+//------------------------------------------------------
+void write_kikad_mod(string name)
+{
+  output(name, "wt") 
+  {
+    if (library)
+     library(L) 
+	{
+	  int t = time();
+	  printf("PCBNEW-LibModule-V1   %02d/%02d/%04d-%02d:%02d:%02d\n",
+	  t2day(t), t2month(t)+1, t2year(t), t2hour(t), t2minute(t), t2second(t));	  
+	  write_kikad_mod_idx(L);
+	  write_kikad_mod_body(L);
+          printf("$EndLIBRARY\n");
+	}
+  }   
+}
+
+//==============================================================================================================
+// Eagle Symbol conversion to kicad lib file 08.06.2006
+//=============================================================================================================
+
+//------------------------------------------------------
+// Global variables
+//------------------------------------------------------
+string g_mod_name ;   
+string g_lib_name ;
+real   g_Fact = 254;        // global uMeter to uInch conversion factor
+int    g_missingPrefix = 0; // global Indicator if an eagle devices hasn't got an prefix
+
+//------------------------------------------------------
+//write kicad multipoint polygone entries
+//------------------------------------------------------
+void write_kikad_polygon( UL_GATE G, int transX, int transY, int gatePos )
+{
+   G.symbol.polygons(POLY)
+   {
+      string polyCoord   = "";
+      int countPolyCoord = 0;
+      char fillPattern;
+      
+      switch( POLY.pour )
+      {
+         case POLYGON_POUR_SOLID:
+            fillPattern = 'F';
+         break;
+         case POLYGON_POUR_HATCH:
+            fillPattern = 'f';
+         break;
+         default:
+            fillPattern = 'F';
+         break;	
+      }
+
+      POLY.wires(W)
+      {
+         int x1 = (W.x1/g_Fact) - transX;
+         int y1 = (W.y1/g_Fact) - transY;
+         int x2 = (W.x2/g_Fact) - transX;
+         int y2 = (W.y2/g_Fact) - transY;
+
+         sprintf( polyCoord, " %s %d %d %d %d", polyCoord, x1, y1, x2, y2 );
+         countPolyCoord += 2;
+      }
+      
+      printf("P %d %d %d %d %s %c\n", countPolyCoord, gatePos, 1, 0, polyCoord, fillPattern);
+   }
+}
+
+//------------------------------------------------------
+//write kicad arc and polygone (line) entries
+//------------------------------------------------------
+void write_kikad_arc_line( UL_GATE G, int transX, int transY, int gatePos )
+{
+   G.symbol.wires(WIRE)
+   { 
+      if( WIRE.arc)
+      {  
+         int x1     = WIRE.arc.x1 / g_Fact - transX;
+         int y1     = WIRE.arc.y1 / g_Fact - transY;
+         int x2     = WIRE.arc.x2 / g_Fact - transX;
+         int y2     = WIRE.arc.y2 / g_Fact - transY;
+         int xc     = WIRE.arc.xc / g_Fact - transX;
+         int yc     = WIRE.arc.yc / g_Fact - transY;
+         int radius = WIRE.arc.radius / g_Fact;
+         int angle1 = (WIRE.arc.angle1 * 10)-3599;
+         int angle2 = (WIRE.arc.angle2 * 10)-3601;
+         
+         printf( "A %d %d %d %d %d %d %d %d N %d %d %d %d\n", xc, yc, radius, angle1, angle2, 
+                                                              gatePos, 1, 0, x1, y1, x2, y2 );
+      }
+      else
+      {
+         int x1     = WIRE.x1 / g_Fact - transX;
+         int y1     = WIRE.y1 / g_Fact - transY;
+         int x2     = WIRE.x2 / g_Fact - transX;
+         int y2     = WIRE.y2 / g_Fact - transY;
+         printf( "P 2 %d %d %d %d %d %d %d\n", gatePos, 0, 0, x1, y1, x2, y2 );
+      }
+   }
+}       
+
+//------------------------------------------------------
+//write kicad rectangle entries
+//------------------------------------------------------
+void write_kikad_rectangle( UL_GATE G, int transX, int transY, int gatePos )
+{
+   G.symbol.rectangles(RECT)
+   {
+      int x1 = (RECT.x1/g_Fact) - transX;
+      int y1 = (RECT.y1/g_Fact) - transY;
+      int x2 = (RECT.x2/g_Fact) - transX;
+      int y2 = (RECT.y2/g_Fact) - transY;
+      printf( "S %d %d %d %d %d %d %d F\n", x1, y1, x2, y2, gatePos, 1, 0 );
+   }
+}
+
+//------------------------------------------------------
+//write kicad circle entries
+//------------------------------------------------------
+void write_kikad_circle( UL_GATE G, int transX, int transY, int gatePos )
+{
+   G.symbol.circles(C) 
+   {
+      int x = (C.x/g_Fact) - transX;
+      int y = (C.y/g_Fact) - transY;
+      int radius = C.radius/g_Fact;
+      
+      if( radius > 0 && radius < 10 )
+      {
+         printf("C %d %d %d %d %d %d F\n", x, y, radius, gatePos, 1, 0);
+      }
+      else
+      {
+         printf("C %d %d %d %d %d %d N\n", x, y, radius, gatePos, 1, 0);
+      }
+   }
+}
+
+//------------------------------------------------------
+//write kicad text entries
+//------------------------------------------------------
+void write_kikad_text( UL_GATE G, int transX, int transY, int gatePos )
+{
+   char orient       = 0;
+   char hAlign       = 'C';
+   char vAlign       = 'C';
+   
+   G.symbol.texts(T) 
+   {
+      int    textAngle   = T.angle;
+      string textString  = T.value;
+      real   fontSize    = T.size/g_Fact;
+      int    posX        = (T.x/g_Fact) - transX;
+      int    posY        = (T.y/g_Fact) - transY;
+      int offset = ((T.size * strlen(T.value))/2)/g_Fact;
+            
+      
+      // Replace all spaces with '~'
+      for (int idx = 0; textString[idx]; ++idx)
+      {
+         if( textString[idx] == ' ' )
+            textString[idx] = '~';
+      }   
+
+      switch( textAngle )
+      {
+         case 0:
+            orient = 0;
+            hAlign = 'L';
+            vAlign = 'B';
+            posX   = posX + offset;
+            posY   = posY + fontSize/2;
+         break;
+ 
+         case 90:
+            orient = 1;
+            hAlign = 'L';
+            vAlign = 'B';
+            posX   = posX - fontSize/2;
+            posY   = posY + offset;
+         break;
+
+         case 180:
+            orient = 0;
+            hAlign = 'R';
+            vAlign = 'T';
+            posX   = posX - offset;
+            posY   = posY - fontSize/2;
+         break;
+
+         case 270:
+            orient = 1;
+            hAlign = 'L';
+            vAlign = 'B';
+            posX   = posX + fontSize/2;
+            posY   = posY - offset;
+         break;
+
+      }
+     	 
+      if(T.value != ">NAME" && T.value != ">VALUE" )
+         printf("T %d %d %d %.0f %d %d %d %s\n", orient, posX, posY, 
+                                                 fontSize, 0, gatePos, 0, textString );       
+   } 
+}
+
+//------------------------------------------------------
+//write kicad pin entries
+//------------------------------------------------------
+void write_kikad_pins( UL_GATE G, int  transX, int transY, int gatePos )
+{
+   int pinCount = 1;
+   
+   G.symbol.pins(P) 
+   {
+      int    pinAngle   = 0;
+      char   orient     = 'L';
+      int    pinLength  = 0;
+      char   pinType    = 'U';
+      string pinShape   = "";
+      string pinContact = "";
+      int    posX       = P.x/g_Fact - transX;
+      int    posY       = P.y/g_Fact - transY;
+
+      if(pinCount >= 9999 )
+      {
+         dlgMessageBox("Canceled! To many pin numbers. (>9999)" ); 
+         exit(EXIT_FAILURE); 
+      }
+
+      pinAngle = P.angle;     
+
+      switch( pinAngle )
+      {
+         case 0:
+            orient = 'R';
+         break;
+	 
+         case 90:
+            orient = 'U';
+         break;
+	 
+         case 180:
+            orient = 'L';
+         break;
+	 
+         case 270:
+            orient = 'D';
+         break;
+	 
+         default:
+            orient = 'R';
+         break;
+      }
+           
+         switch(P.length)
+         {
+            case PIN_LENGTH_POINT:
+               pinLength = 0;
+            break;
+		  
+            case PIN_LENGTH_SHORT:
+               pinLength = 100;
+            break;
+		  
+            case PIN_LENGTH_MIDDLE:
+               pinLength = 200;
+            break;
+		  
+            case PIN_LENGTH_LONG:
+               pinLength = 300;
+            break;
+		  
+            default:
+               pinLength = 200;
+            break;
+         }
+	       
+         switch(P.direction)
+         {
+            case PIN_DIRECTION_NC:
+               pinType = 'U';
+            break;
+		  
+            case PIN_DIRECTION_IN:
+               pinType = 'I';
+            break;
+		  
+            case PIN_DIRECTION_OUT:
+               pinType = 'O';
+            break;
+		  
+            case PIN_DIRECTION_IO:
+               pinType = 'B';
+            break;
+		  
+            case PIN_DIRECTION_OC:
+               pinType = 'C';
+            break;
+		  
+            case PIN_DIRECTION_PWR:
+               pinType = 'W';
+            break;
+		  
+            case PIN_DIRECTION_PAS:
+               pinType = 'P';
+            break;
+		  
+            case PIN_DIRECTION_HIZ:
+               pinType = 'T';
+            break;
+		  
+            case PIN_DIRECTION_SUP:
+               pinType = 'w';
+            break;
+		  
+            default:
+               pinType = 'U';
+            break;
+         }
+	       
+         switch(P.function)
+         {
+            case PIN_FUNCTION_FLAG_NONE:
+               pinShape  = "";
+            break;
+		  
+            case PIN_FUNCTION_FLAG_DOT:
+               pinShape  = "I";
+            break;
+		  
+            case PIN_FUNCTION_FLAG_CLK:
+               pinShape  = "C";
+            break;
+		  
+            case PIN_FUNCTION_FLAG_CLK|PIN_FUNCTION_FLAG_DOT:
+               pinShape  = "IC";
+            break;
+		  
+            default:
+               pinShape  = "";
+            break;
+         }
+      	 
+      if(P.contact)
+      {
+         printf( "X %s %s %d %d %d %c %d %d %d %d %c %s\n", P.name, P.contact.name,
+                                                            posX, posY,
+                                                            pinLength, orient,
+                                                            40, 40, gatePos, 1,
+                                                            pinType, pinShape );
+      }
+      else
+      {
+         printf( "X %s %s %d %d %d %c %d %d %d %d %c %s\n", P.name, "~",
+                                                            posX, posY,
+                                                            pinLength, orient,
+                                                            40, 40, gatePos, 1,
+                                                            pinType, pinShape );
+      }
+   } 
+}
+//------------------------------------------------------
+//write rectangles entries
+//------------------------------------------------------
+void write_kikad_elements( UL_GATE G, int gatePos )
+{
+         int transX = G.x/g_Fact;
+         int transY = G.y/g_Fact;
+         
+         //Write the polygon entries
+         write_kikad_polygon( G, transX, transY, gatePos );
+         
+         //Write the arc and polygon (line) entries
+         write_kikad_arc_line( G, transX, transY, gatePos );  
+
+         //Write the rectangle entries
+         write_kikad_rectangle( G, transX, transY, gatePos );
+	 
+         //Write the circle entries
+         write_kikad_circle( G, transX, transY, gatePos );
+
+         //Write the text entries
+         write_kikad_text( G, transX, transY, gatePos );
+	 
+         //Write the pin entries
+         write_kikad_pins( G, transX, transY, gatePos );
+}
+
+//------------------------------------------------------
+//Write kicad alias entries
+//------------------------------------------------------
+void write_kikad_def_alias( UL_DEVICE DEV, UL_GATE G, string symbolName, int countPart )
+{
+   int prefix_X = 0;
+   int prefix_Y = 0;
+   int name_X   = 0;
+   int name_Y   = 0;  
+
+   char orient   = 'H';
+   char hAlign   = 'C';
+   char vAlign   = 'C';
+
+   string nameString   = "";
+   string prefixString = "";
+
+   G.symbol.texts(T) 
+   {
+         if( T.value == ">VALUE" || T.value == ">NAME" )
+         {
+            int transX = G.x/g_Fact;
+            int transY = G.y/g_Fact;
+            int angle = T.angle;
+            int posX   = 0;
+            int posY   = 0;
+            int offset = 0;
+            
+            switch( angle )
+            {
+               case 0:
+                  orient = 'H';
+                  hAlign = 'L';
+                  vAlign = 'B';
+               break;
+ 
+               case 90:
+                  offset = -(T.size / 2)/g_Fact;
+                  orient = 'V';
+                  hAlign = 'L';
+                  vAlign = 'B';
+               break;
+
+               case 180:
+                  orient = 'H';
+                  hAlign = 'R';
+                  vAlign = 'T';
+               break;
+
+               case 270:
+                  orient = 'V';
+                  hAlign = 'L';
+                  vAlign = 'B';
+               break;
+            }
+
+            if( T.value == ">VALUE" )
+            {
+               name_X = T.x/g_Fact - transX + offset;
+               name_Y = T.y/g_Fact - transY;
+            } 
+      
+            if( T.value == ">NAME" )
+            {
+               prefix_X = T.x/g_Fact - transX + offset;
+               prefix_Y = T.y/g_Fact - transY;
+            }
+	 }
+   }
+   if( DEV.prefix == "" )
+   {
+      if( DEV.name == "" )
+         printf("F0 \"%s\" %d %d %d %c %c %c %c\n", symbolName, name_X, name_Y, 50, 
+                                                    orient, 'V', hAlign, vAlign);
+   }
+   else
+   {
+      printf("F0 \"%s\" %d %d %d %c %c %c %c\n", DEV.prefix, prefix_X, prefix_Y, 
+                                                          50, orient, 'V', hAlign, vAlign);
+      if( DEV.name != "" )
+      {   
+         printf("F1 \"%s\" %d %d %d %c %c %c %c\n", symbolName, name_X, name_Y, 
+                                                    50, orient, 'V', hAlign, vAlign);
+         if( DEV.package )
+            printf("F2 \"%s-%s\" 0 150 50 H I C C\n", DEV.library, DEV.package.name);
+      }
+   }
+}
+
+
+
+//------------------------------------------------------
+//write lib header
+//------------------------------------------------------
+void write_kikad_lib( string fileName )
+{
+   // write INDEX start tag
+   //printf("######################################################################\n");
+   //printf("# Name: %s\n", LIB.name);
+   //printf("# Headline: %s\n", LIB.headline);
+   //printf("######################################################################\n");
+   int oneRun = 0;
+   
+   output(fileName, "wt") 
+   {
+   if(library)
+   {
+      library(LIB) 
+      {
+         int t = time();
+         printf("EESchema-LIBRARY Version 2.3  %02d/%02d/%04d-%02d:%02d:%02d\n",
+         t2day(t), t2month(t)+1, t2year(t), t2hour(t), t2minute(t), t2second(t));  
+	 printf("# Converted with eagle2kicad.ulp Version %.1f\n", VERSION);     
+
+	 int countDevices = 0; 
+         LIB.devices(DEV)
+         {
+	    countDevices++;
+	 }
+	
+	 printf("# Device count = %d\n", countDevices);
+
+         LIB.devices(DEV)
+         {
+	    int countGates = 0; 
+
+	    // retrieve amount of gates
+            DEV.gates(G) 
+            { 
+	       countGates++;
+	    }
+
+            string nameString   = DEV.name;
+            string prefixString = DEV.prefix;
+            string drawPinnumberStr  = "N";
+	    string drawPinnameStr  = "N";
+
+	    if (drawPinnumber) {
+	      drawPinnumberStr = "Y";
+	    }
+
+	    if (drawPinname) {
+	      drawPinnameStr = "Y";
+	    }
+
+            printf("#\n");
+            printf("# Dev Name: %s\n", nameString);
+	    if(DEV.package)
+              printf("# Package Name: %s\n", DEV.package.name);
+            printf("# Dev Tech: %s\n", DEV.technologies);
+            printf("# Dev Prefix: %s\n", DEV.prefix);
+   	    printf("# Gate count = %d\n", countGates);
+            printf("#\n");
+
+	    // check for missing prefix
+            if( DEV.prefix == "" )
+            {       
+              prefixString = "??";
+              g_missingPrefix = 1;
+            }
+
+            printf("DEF %s %s %d %d %s %s %d %c %c\n", nameString, prefixString, 0, 40, drawPinnumberStr, drawPinnameStr, countGates, 'L', 'N');
+
+	    int gatePos = 0; 
+            DEV.gates(G) 
+            { 
+		  gatePos++;
+		  
+	//	  printf("# Gate Name: %s\n",G.name);
+	//	  printf("# Symbol Name: %s\n", G.symbol.name);
+       
+		  if( gatePos == 1) {
+                    // Write kicad alias entries
+                    write_kikad_def_alias(DEV, G, nameString, gatePos );
+	            printf("DRAW\n");
+		  }
+
+	          write_kikad_elements(G, gatePos);
+       	    }
+
+            printf("ENDDRAW\n");
+            printf("ENDDEF\n\n");          
+         }
+         printf("#End Library\n");
+      }
+    }
+  }      
+}
+
+
+//------------------------------------------------------
+// Select the path where the modfile will be saved 
+//------------------------------------------------------
+void openModPath( string startPath )
+{
+   string dirName = "";
+   dirName = dlgDirectory("Select a directory", startPath);
+   
+   if( dirName != "" )
+   {
+      library(L) 
+      {
+         L.devices(DEV)
+	 {
+            g_mod_name = dirName + "/" + DEV.library + ".mod";
+	 }
+      }
+   }
+}
+
+//------------------------------------------------------
+// Select the path where the libfile will be saved 
+//------------------------------------------------------
+void openLibPath( string startPath )
+{
+   string dirName = "";
+   dirName = dlgDirectory("Select a directory", startPath);
+   
+   if( dirName != "" )
+   {
+      library(L) 
+      {
+         L.devices(DEV)
+	 {
+            g_lib_name = dirName + "/" + DEV.library + ".lib";
+	 }
+      }
+   }
+}
+
+//------------------------------------------------------
+// main program 
+//------------------------------------------------------
+int result;
+string ref;
+int sameDir = 0;
+string titleString;
+
+sprintf( titleString, "Export to KiCAD, Version %.1f", VERSION );
+
+if (library)  
+{
+   library(L) 
+   {
+      L.devices(DEV)
+      {
+        g_lib_prefix = DEV.library;
+      }
+
+      g_mod_name = strsub(L.name, 0, strlen(L.name) - 3) + "mod";
+      g_lib_name = strsub(L.name, 0, strlen(L.name) - 3) + "lib";
+      //g_lib_name = "G:/PCB-Tools/kicad/library/1test.lib";
+      //g_lib_name = "/opt/kicad/library/" + g_lib_prefix + ".lib";
+      //g_mod_name = "/opt/kicad/modules/" + g_lib_prefix + ".mod";
+   }
+}
+else 
+{
+   dlgMessageBox("Please run from library or board editor." ); 
+   exit(EXIT_FAILURE);
+}
+
+result = dlgDialog( titleString )
+{
+	  
+   dlgTabWidget 
+   {
+      //=====================TAB1=============================================================
+      dlgTabPage("Symbol:") 
+      {     
+
+        dlgHBoxLayout dlgSpacing(400);
+        dlgStretch(0);
+        dlgLabel("Export to file:");
+        dlgStretch(0);
+	dlgHBoxLayout
+	{
+           dlgStringEdit(g_lib_name);
+	   dlgPushButton("...") openLibPath("C:\\");
+	}
+	dlgHBoxLayout
+	{
+	   dlgCheckBox("Draw pin &names", drawPinname);
+	   dlgCheckBox("Draw pin n&umbers", drawPinnumber);
+	}
+        dlgVBoxLayout 
+        {
+           dlgStretch(0);
+           dlgHBoxLayout 
+           {
+              dlgStretch(1);
+              dlgPushButton("+OK") dlgAccept();
+              dlgStretch(0);
+           }
+
+           dlgHBoxLayout 
+           {
+              dlgStretch(1);
+              dlgPushButton("-Cancel") dlgReject();
+              dlgStretch(0);
+           }
+           dlgStretch(10);
+        };
+        dlgStretch(1);
+     }
+     //=====================TAB2=============================================================
+      dlgTabPage("Package:") 
+      {     
+
+        dlgHBoxLayout dlgSpacing(400);
+        dlgStretch(0);
+        dlgLabel("Export to file:");
+        dlgStretch(0);
+        dlgHBoxLayout
+	{
+           dlgStringEdit(g_mod_name);
+	   dlgPushButton("...") openModPath("C:\\");
+	}
+	dlgHBoxLayout
+	{
+	   //dlgCheckBox("&Same output directory", sameDir);
+	}
+        dlgVBoxLayout 
+        {
+           dlgStretch(0);
+           dlgHBoxLayout 
+           {
+              dlgStretch(1);
+              dlgPushButton("+OK") dlgAccept();
+              dlgStretch(0);
+           }
+
+           dlgHBoxLayout 
+           {
+              dlgStretch(1);
+              dlgPushButton("-Cancel") dlgReject();
+              dlgStretch(0);
+           }
+           dlgStretch(10);
+        };
+        dlgStretch(1);
+     }
+   }
+};
+
+  if(result)
+  {
+    write_kikad_mod(g_mod_name);
+    write_kikad_lib(g_lib_name);
+    // A success message is useful
+    dlgMessageBox("Conversion finished");
+  }
+// but a cancel message only confuses the user
+//  else 
+//    dlgMessageBox("Canceled!" ); 
+    
+  if( g_missingPrefix == 1 )
+  {
+     string msgString  = "Prefix is missing in a device. It will be replaced by \"??\".\n";
+            msgString += "Please open the exported lib file with an text editor and replace the ?? with your prefix.\n";
+     dlgMessageBox(msgString );
+  } 
+  exit(EXIT_SUCCESS);
+
+

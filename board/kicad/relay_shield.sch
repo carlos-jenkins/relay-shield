@@ -29,6 +29,7 @@ LIBS:opto
 LIBS:atmel
 LIBS:contrib
 LIBS:valves
+LIBS:spark_core
 LIBS:relay_shield-cache
 EELAYER 27 0
 EELAYER END
@@ -36,7 +37,7 @@ $Descr USLetter 11000 8500
 encoding utf-8
 Sheet 1 1
 Title ""
-Date "13 aug 2013"
+Date "14 aug 2013"
 Rev ""
 Comp ""
 Comment1 ""
@@ -99,12 +100,12 @@ RS: Read State of the relay.\nSS: Set State of the relay.\nCS: Current Sense.
 $Comp
 L SPST SW?
 U 1 1 520A9B3C
-P 1250 1400
-F 0 "SW?" H 1250 1500 70  0000 C CNN
-F 1 "SPST" H 1250 1300 70  0000 C CNN
-F 2 "~" H 1250 1400 60  0000 C CNN
-F 3 "~" H 1250 1400 60  0000 C CNN
-	1    1250 1400
+P 3000 1400
+F 0 "SW?" H 3000 1500 70  0000 C CNN
+F 1 "SPST" H 3000 1300 70  0000 C CNN
+F 2 "~" H 3000 1400 60  0000 C CNN
+F 3 "~" H 3000 1400 60  0000 C CNN
+	1    3000 1400
 	0    -1   -1   0   
 $EndComp
 $Comp
@@ -143,12 +144,12 @@ $EndComp
 $Comp
 L +3.3V #PWR04
 U 1 1 520A9BBE
-P 1250 900
-F 0 "#PWR04" H 1250 860 30  0001 C CNN
-F 1 "+3.3V" H 1250 1010 30  0000 C CNN
-F 2 "" H 1250 900 60  0000 C CNN
-F 3 "" H 1250 900 60  0000 C CNN
-	1    1250 900 
+P 3000 900
+F 0 "#PWR04" H 3000 860 30  0001 C CNN
+F 1 "+3.3V" H 3000 1010 30  0000 C CNN
+F 2 "" H 3000 900 60  0000 C CNN
+F 3 "" H 3000 900 60  0000 C CNN
+	1    3000 900 
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -192,13 +193,9 @@ Wire Wire Line
 Wire Wire Line
 	8450 5300 8700 5300
 Wire Wire Line
-	1250 1900 1250 2550
-Wire Wire Line
 	3350 900  3350 1450
 Wire Wire Line
 	3800 1300 3800 1450
-Wire Wire Line
-	3250 2550 3500 2550
 Wire Wire Line
 	3800 2350 3350 2350
 Wire Wire Line
@@ -224,8 +221,6 @@ Wire Wire Line
 	3800 1850 4200 1850
 Wire Wire Line
 	3800 1450 4200 1450
-Wire Wire Line
-	2750 1300 3800 1300
 $Comp
 L +5V #PWR07
 U 1 1 520AA26A
@@ -240,85 +235,31 @@ $EndComp
 $Comp
 L R R?
 U 1 1 520AA4F9
-P 3000 2550
-F 0 "R?" V 3080 2550 40  0000 C CNN
-F 1 "1K" V 3007 2551 40  0000 C CNN
-F 2 "~" V 2930 2550 30  0000 C CNN
-F 3 "~" H 3000 2550 30  0000 C CNN
-	1    3000 2550
+P 3250 2550
+F 0 "R?" V 3330 2550 40  0000 C CNN
+F 1 "1K" V 3257 2551 40  0000 C CNN
+F 2 "~" V 3180 2550 30  0000 C CNN
+F 3 "~" H 3250 2550 30  0000 C CNN
+	1    3250 2550
 	0    -1   -1   0   
 $EndComp
-$Comp
-L PHDARL U?
-U 1 1 520AA563
-P 2150 2350
-F 0 "U?" H 2160 2670 70  0000 C CNN
-F 1 "Optoisolator" H 2160 2030 70  0000 C CNN
-F 2 "~" H 2150 2350 60  0000 C CNN
-F 3 "~" H 2150 2350 60  0000 C CNN
-	1    2150 2350
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	2750 1300 2750 2150
-Connection ~ 3350 1300
-$Comp
-L R R?
-U 1 1 520AA5CD
-P 1550 2800
-F 0 "R?" V 1630 2800 40  0000 C CNN
-F 1 "220" V 1557 2801 40  0000 C CNN
-F 2 "~" V 1480 2800 30  0000 C CNN
-F 3 "~" H 1550 2800 30  0000 C CNN
-	1    1550 2800
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	1250 2450 850  2450
 Text Notes 8750 4250 0    30   ~ 0
 MCP1825S 500 mA LDO\n
-Text Label 850  2150 0    60   ~ 0
+Text Label 2650 2550 0    60   ~ 0
 SS
-Text Label 850  2450 0    60   ~ 0
+Text Label 2650 2200 0    60   ~ 0
 RS
 $Comp
 L R R?
 U 1 1 520AAAED
-P 1250 2800
-F 0 "R?" V 1330 2800 40  0000 C CNN
-F 1 "10K" V 1257 2801 40  0000 C CNN
-F 2 "~" V 1180 2800 30  0000 C CNN
-F 3 "~" H 1250 2800 30  0000 C CNN
-	1    1250 2800
+P 3000 2800
+F 0 "R?" V 3080 2800 40  0000 C CNN
+F 1 "10K" V 3007 2801 40  0000 C CNN
+F 2 "~" V 2930 2800 30  0000 C CNN
+F 3 "~" H 3000 2800 30  0000 C CNN
+	1    3000 2800
 	1    0    0    -1  
 $EndComp
-Connection ~ 1250 2450
-$Comp
-L R R?
-U 1 1 520A9BFA
-P 3350 2800
-F 0 "R?" V 3430 2800 40  0000 C CNN
-F 1 "10K" V 3357 2801 40  0000 C CNN
-F 2 "~" V 3280 2800 30  0000 C CNN
-F 3 "~" H 3350 2800 30  0000 C CNN
-	1    3350 2800
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	1250 3200 3800 3200
-Wire Wire Line
-	3350 3050 3350 3200
-Connection ~ 3800 3200
-Wire Wire Line
-	1550 3200 1550 3050
-Connection ~ 3350 3200
-Wire Wire Line
-	1250 3200 1250 3050
-Connection ~ 1550 3200
-Wire Wire Line
-	850  2150 1550 2150
-Connection ~ 1250 2150
-Connection ~ 3350 2550
 $Comp
 L CONN_2 P?
 U 1 1 520AAB24
@@ -415,8 +356,21 @@ $EndComp
 Wire Wire Line
 	1650 5200 1650 5300
 Connection ~ 1650 5200
-Text Notes 850  2550 0    60   ~ 0
+Text Notes 2650 2300 0    60   ~ 0
 <-
-Text Notes 850  2250 0    60   ~ 0
+Text Notes 2650 2650 0    60   ~ 0
 ->\n
+Wire Wire Line
+	3800 1300 3350 1300
+Connection ~ 3350 1300
+Wire Wire Line
+	3000 2550 3000 1900
+Wire Wire Line
+	3000 2550 2650 2550
+Wire Wire Line
+	3000 2200 2650 2200
+Connection ~ 3000 2200
+Wire Wire Line
+	3000 3050 3800 3050
+Connection ~ 3800 3050
 $EndSCHEMATC

@@ -1,0 +1,1581 @@
+#usage "<b>Eagle schematic exporting tool  version 1.1 </b>\n"
+       "<p>"
+       "This ULP can convert an Eagle CAD schematic into KiCAD schematic."
+       "<p>"
+       "Load any schematic and execute the ULP in the eagle. It will produce all the files necessary to load the schematic within KiCAD, including any library symbols from Eagle libraries."
+       "<p>"
+	   "Currently schematics containing multi-gate symbols are not very well supported. There are likely other issues."
+	   "<p>"
+	   "This script is based on the original eagle2kicad_sch.ulp and eagle2kicad-0.9b.ulp scripts by  Dmitri N. Sytov sdn (at) openhardware.ru and juergen.messerer (at) freesurf.ch found on Eagle website. Improvements have been made to improve conversion accuracy, and the two scripts have been combined to ease export."
+	   "<p>"
+       "<author>Author: ben (at) circuitbee.com</author>"
+/*
+ * CHANGELOG================================================
+ * 06.01.2012: updated to eagle2kicad-0.9c.ulp
+ * 26.06.2011: Combined eagle2kicad_sch.ulp and eagle2kicad-0.9b.ulp by  Dmitri N. Sytov sdn (at) openhardware.ru
+ *             and juergen.messerer (at) freesurf.ch found on Eagle website. To produce initial version.
+*/  
+
+/* ==========================================================================
+ * License: This file is released under the license of the GNU Public license
+ *          Version 2.
+ * ==========================================================================*/   
+
+real VERSION   = 1.2;
+
+string g_comboBoxArray[] = { "A0 (1188mm x 840mm)", "A1 (840mm x 594mm)", "A2(594mm x 420mm)",
+                             "A3 (420mm x 297mm)", "A4(297mm x 210mm)", 
+                             "A5(210mm x 148mm)", "A6(148mm x 105mm)", 
+			     "Letter (11 x 8,5)", "Legal (14 x 8.5)", 
+			     "Folio  (13 x 8.5)", "Executive (10.5 x 7.25)",
+			     "A (11 x 8)", "B (16 x 11)", "C (22 x 16)", "D (32 x 22)", "E (44 x 32)",
+			     "User defined" };
+
+string g_sheetSizeArray[] = { "A0", "A1", "A2", "A3", "A4", "A5", "A6", 
+                              "Letter", "Legal", "Folio", "Executive", 
+			      "A", "B", "C", "D", "E" };			   
+ 
+string g_sheetSizes[]     = { "46800 33070", "33070 23400", "23400 16535", "16535 11700", "11700 8267", "8267 5826", "5826 4133", 
+                              "11000 8500", "14000 8500", "13000 8500", "10500", "7250",
+			      "11000 8000", "16000 11000", "22000 16000", "32000 22000", "44000 32000" };
+			  
+int g_selected = 4; // initially selects "A4" 
+
+int g_dimX = 16000;
+int g_dimY = 11000;
+
+string monthArray[] = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+
+string g_strTitle = "";
+string g_strDate  = "";
+string g_strRev   = "";
+string g_strComp  = "";
+string g_comment1   = "";
+string g_comment2   = "";
+string g_comment3   = "";
+string g_comment4   = "";
+
+//real   g_Fact  = 254;        // global uMeter to uInch conversion factor
+int    g_transY = 0;         // Y-axis translation factor, depending on the sheet size
+int    g_transX = 0;         // X-axis translation factor, depending on the sheet size
+
+int rect_conv  = 1;	// many QFP-like packages use rectangles as a pin contour (too much segments in the ki-format)
+int poly_conv  = 1;
+int holes_conv = 1;
+
+string g_lib_prefix ;
+int writePins = 0;
+int drawPinnumber = 0;
+int drawPinname = 1;
+
+int RECT_WIDTH = 26;
+   
+// please edit this LUT if you found mistakes, 
+// and send your corrections to sdn (at) openhardware.ru.
+/*
+ LAYER_CMP_N		 15
+ CMP_N 			 15
+ NB_COPPER_LAYERS	 (CMP_N+1)
+ FIRST_NO_COPPER_LAYER 	 16
+ ADHESIVE_N_CU 		 16
+ ADHESIVE_N_CMP		 17
+ SOLDERPASTE_N_CU	 18
+ SOLDERPASTE_N_CMP	 19
+ SILKSCREEN_N_CU	 20
+ SILKSCREEN_N_CMP	 21
+ SOLDERMASK_N_CU	 22
+ SOLDERMASK_N_CMP	 23
+ DRAW_N			 24
+ COMMENT_N		 25
+ ECO1_N			 26
+ ECO2_N			 27
+ EDGE_N			 28
+*/
+
+// Lookup table for shape layers
+int layer_lut[] =
+{0,       
+ 15,		//LAYER_TOP 
+ 0,0,0,0,0,0,0,0,0,0,0,0,0,0, //inner layers
+ 16,		//LAYER_BOTTOM 
+ 16,		//LAYER_PADS 
+ 16,		//LAYER_VIAS 
+ 21,		//LAYER_UNROUTED 
+ 21,		//LAYER_DIMENSION 
+ 21,		//LAYER_TPLACE 
+ 21,		//LAYER_BPLACE 
+ 21,		//LAYER_TORIGINS 
+ 21,		//LAYER_BORIGINS 
+ 21,		//LAYER_TNAMES 
+ 21,		//LAYER_BNAMES 
+ 21,		//LAYER_TVALUES 
+ 21,		//LAYER_BVALUES 
+ 21,		//LAYER_TSTOP 
+ 21,		//LAYER_BSTOP 
+ 21,		//LAYER_TCREAM 
+ 21,		//LAYER_BCREAM 
+ 21,		//LAYER_TFINISH 
+ 21,		//LAYER_BFINISH 
+ 21,		//LAYER_TGLUE 
+ 21, 		//LAYER_BGLUE 
+ 21,		//LAYER_TTEST 
+ 21,		//LAYER_BTEST 
+ 21,		//LAYER_TKEEPOUT 
+ 21,		//LAYER_BKEEPOUT 
+ 21,		//LAYER_TRESTRICT 
+ 21,		//LAYER_BRESTRICT 
+ 21,		//LAYER_VRESTRICT 
+ 21,		//LAYER_DRILLS 
+ 21,		//LAYER_HOLES 
+ 21,		//LAYER_MILLING 
+ 21,		//LAYER_MEASURES 
+ 21,		//LAYER_DOCUMENT 
+ 21,		//LAYER_REFERENCE 
+ 21,		//LAYER_TDOCU 
+ 20,		//LAYER_BDOCU 
+ 21,		//LAYER_NETS 
+ 21,		//LAYER_BUSSES 
+ 21,		//LAYER_PINS 
+ 21,		//LAYER_SYMBOLS 
+ 21,		//LAYER_NAMES 
+ 21		//LAYER_VALUES 
+};
+
+// Lookup table for pad layers
+                                                                                                                   
+//CUIVRE_LAYER			0x00000001
+//CMP_LAYER			0x00008000    
+//ADHESIVE_LAYER_CU		0x00010000    
+//ADHESIVE_LAYER_CMP		0x00020000
+//SOLDERPASTE_LAYER_CU		0x00040000 
+//SOLDERPASTE_LAYER_CMP		0x00080000  
+//SILKSCREEN_LAYER_CU		0x00100000
+//SILKSCREEN_LAYER_CMP		0x00200000     
+//SOLDERMASK_LAYER_CU		0x00400000 
+//SOLDERMASK_LAYER_CMP    	0x00800000     
+//DRAW_LAYER			0x01000000  
+//COMMENT_LAYER			0x02000000       
+//ECO1_LAYER			0x04000000 
+//ECO2_LAYER			0x08000000 
+//EDGE_LAYER			0x10000000  
+//intS_LAYER			0xE0000000  
+//ALL_LAYERS			0x1FFFFFFF 
+//ALL_NO_CU_LAYERS		0x1FFF0000     
+//ALL_CU_LAYERS			0x0000FFFF  
+//INTERNAL_LAYERS		0x00007FFE            
+//EXTERNAL_LAYERS		0x00008001 
+
+int pad_lut[] =
+{0,
+ 0x00008000 | 0x00800000 | 0x00080000,			//LAYER_TOP
+ 0,0,0,0,0,0,0,0,0,0,0,0,0,0, 				//inner layers
+ 0x00000001 | 0x00400000,				//LAYER_BOTTOM 
+ 0x00008001 | 0x00A00000 | 0x00080000,			//LAYER_PADS 
+ 0x00008001 | 0x00800000 | 0x00400000,			//LAYER_VIAS 
+ 0,							//LAYER_UNROUTED 
+ 0,							//LAYER_DIMENSION 
+ 0,							//LAYER_TPLACE 
+ 0,							//LAYER_BPLACE 
+ 0,							//LAYER_TORIGINS 
+ 0,							//LAYER_BORIGINS 
+ 0,							//LAYER_TNAMES 
+ 0,							//LAYER_BNAMES 
+ 0,							//LAYER_TVALUES 
+ 0,							//LAYER_BVALUES 
+ 0,							//LAYER_TSTOP 
+ 0,							//LAYER_BSTOP 
+ 0,							//LAYER_TCREAM 
+ 0,							//LAYER_BCREAM 
+ 0,							//LAYER_TFINISH 
+ 0,							//LAYER_BFINISH 
+ 0,							//LAYER_TGLUE 
+ 0, 							//LAYER_BGLUE 
+ 0,							//LAYER_TTEST 
+ 0,							//LAYER_BTEST 
+ 0,							//LAYER_TKEEPOUT 
+ 0,							//LAYER_BKEEPOUT 
+ 0,							//LAYER_TRESTRICT 
+ 0,							//LAYER_BRESTRICT 
+ 0,							//LAYER_VRESTRICT 
+ 0x01000000 ,						//LAYER_DRILLS 
+ 0x01000000 ,						//LAYER_HOLES 
+ 0x01000000 ,						//LAYER_MILLING 
+ 0,							//LAYER_MEASURES 
+ 0,							//LAYER_DOCUMENT 
+ 0,							//LAYER_REFERENCE 
+ 0,							//LAYER_TDOCU 
+ 0,							//LAYER_BDOCU 
+ 0,							//LAYER_NETS 
+ 0,							//LAYER_BUSSES 
+ 0x00008001 | 0x00A00000 | 0x00080000,			//LAYER_PINS 
+ 0,							//LAYER_SYMBOLS 
+ 0,							//LAYER_NAMES 
+ 0 							//LAYER_VALUES 
+};
+
+ 
+//------------------------------------------------------
+// utils
+//------------------------------------------------------
+
+int layer_lookup(int layer)
+{
+  if(layer > 42) return 21;
+  return layer_lut[layer+1];
+}
+
+//Units conversion routine | 1.0 inch = 10000 Ki-units | 
+int egl2ki(int units)
+{
+  real inch = u2inch(units);
+  return int(inch*10000);
+}
+
+// check for smd pads in package
+int issmd(UL_PACKAGE PAC)
+{
+ int res = 0;
+  
+ PAC.contacts(C)
+ {
+   res |= C.smd?1:0;
+ }
+ return res;
+
+}
+string replace_string(string s1, string s2, string s3) {
+  int i, pos = 1;
+  string a = s1;
+  while (pos >= 0) {
+    pos = strstr(a, s2);
+    if (pos < 0) break;
+    string st1 = strsub(a, 0, pos);
+    string st2 = strsub(a, pos + strlen(s2));
+    a = st1+s3+st2;
+    }
+  return a;
+}
+
+//==============================================================================================================
+// Eagle Symbol conversion to kicad lib file 08.06.2006
+//=============================================================================================================
+
+//------------------------------------------------------
+// Global variables
+//------------------------------------------------------
+string g_lib_name ;
+real   g_Fact = 254;        // global uMeter to uInch conversion factor
+int    g_missingPrefix = 0; // global Indicator if an eagle devices hasn't got an prefix
+
+//------------------------------------------------------
+//write kicad multipoint polygone entries
+//------------------------------------------------------
+void write_kikad_polygon( UL_GATE G, int transX, int transY, int gatePos )
+{
+   G.symbol.polygons(POLY)
+   {
+      string polyCoord   = "";
+      int countPolyCoord = 0;
+      char fillPattern;
+      
+      switch( POLY.pour )
+      {
+         case POLYGON_POUR_SOLID:
+            fillPattern = 'F';
+         break;
+         case POLYGON_POUR_HATCH:
+            fillPattern = 'f';
+         break;
+         default:
+            fillPattern = 'F';
+         break;	
+      }
+
+      POLY.wires(W)
+      {
+         int x1 = (W.x1/g_Fact) - transX;
+         int y1 = (W.y1/g_Fact) - transY;
+         int x2 = (W.x2/g_Fact) - transX;
+         int y2 = (W.y2/g_Fact) - transY;
+
+         sprintf( polyCoord, " %s %d %d %d %d", polyCoord, x1, y1, x2, y2 );
+         countPolyCoord += 2;
+      }
+      
+      printf("P %d %d %d %d %s %c\n", countPolyCoord, gatePos, 1, 0, polyCoord, fillPattern);
+   }
+}
+
+//------------------------------------------------------
+//write kicad arc and polygone (line) entries
+//------------------------------------------------------
+void write_kikad_arc_line( UL_GATE G, int transX, int transY, int gatePos )
+{
+   G.symbol.wires(WIRE)
+   { 
+      if( WIRE.arc)
+      {  
+         int x1     = WIRE.arc.x1 / g_Fact - transX;
+         int y1     = WIRE.arc.y1 / g_Fact - transY;
+         int x2     = WIRE.arc.x2 / g_Fact - transX;
+         int y2     = WIRE.arc.y2 / g_Fact - transY;
+         int xc     = WIRE.arc.xc / g_Fact - transX;
+         int yc     = WIRE.arc.yc / g_Fact - transY;
+         int radius = WIRE.arc.radius / g_Fact;
+         int angle1 = (WIRE.arc.angle1 * 10)-3599;
+         int angle2 = (WIRE.arc.angle2 * 10)-3601;
+         
+         printf( "A %d %d %d %d %d %d %d %d N %d %d %d %d\n", xc, yc, radius, angle1, angle2, 
+                                                              gatePos, 1, 0, x1, y1, x2, y2 );
+      }
+      else
+      {
+         int x1     = WIRE.x1 / g_Fact - transX;
+         int y1     = WIRE.y1 / g_Fact - transY;
+         int x2     = WIRE.x2 / g_Fact - transX;
+         int y2     = WIRE.y2 / g_Fact - transY;
+         printf( "P 2 %d %d %d %d %d %d %d N\n", gatePos, 0, 0, x1, y1, x2, y2 );
+      }
+   }
+}       
+
+//------------------------------------------------------
+//write kicad rectangle entries
+//------------------------------------------------------
+void write_kikad_rectangle( UL_GATE G, int transX, int transY, int gatePos )
+{
+   G.symbol.rectangles(RECT)
+   {
+      int x1 = (RECT.x1/g_Fact) - transX;
+      int y1 = (RECT.y1/g_Fact) - transY;
+      int x2 = (RECT.x2/g_Fact) - transX;
+      int y2 = (RECT.y2/g_Fact) - transY;
+      printf( "S %d %d %d %d %d %d %d F\n", x1, y1, x2, y2, gatePos, 1, 0 );
+   }
+}
+
+//------------------------------------------------------
+//write kicad circle entries
+//------------------------------------------------------
+void write_kikad_circle( UL_GATE G, int transX, int transY, int gatePos )
+{
+   G.symbol.circles(C) 
+   {
+      int x = (C.x/g_Fact) - transX;
+      int y = (C.y/g_Fact) - transY;
+      int radius = C.radius/g_Fact;
+      
+      if( radius > 0 && radius < 10 )
+      {
+         printf("C %d %d %d %d %d %d F\n", x, y, radius, gatePos, 1, 0);
+      }
+      else
+      {
+         printf("C %d %d %d %d %d %d N\n", x, y, radius, gatePos, 1, 0);
+      }
+   }
+}
+
+//------------------------------------------------------
+//write kicad text entries
+//------------------------------------------------------
+void write_kikad_text( UL_GATE G, int transX, int transY, int gatePos )
+{
+   int orient       = 0;
+   string hAlign       = "C";
+   string vAlign       = "C";
+   
+   G.symbol.texts(T) 
+   {
+      int    textAngle   = T.angle;
+      string textString  = T.value;
+      real   fontSize    = T.size/g_Fact;
+      int    posX        = (T.x/g_Fact) - transX;
+      int    posY        = (T.y/g_Fact) - transY;
+      int offset = ((T.size * strlen(T.value))/2)/g_Fact;
+	  int textOffset = 15;
+            
+      //printf("#UL_TEXT %f %d %d %d %d %d %d %s %d,%d\n",T.angle,T.font,T.layer,T.mirror, T.ratio, T.size, T.spin, T.value, T.x, T.y);
+      // Replace all spaces with '~'
+      for (int idx = 0; textString[idx]; ++idx)
+      {
+         if( textString[idx] == ' ' )
+            textString[idx] = '~';
+      }   
+
+      switch( textAngle )
+      {
+         case 0:
+            orient = 0;
+            hAlign = "L";
+            vAlign = "B";
+			if (T.mirror==1) {
+				hAlign = "R";
+			}
+         break;
+ 
+         case 90:
+            orient = 900;
+            hAlign = "L";
+            vAlign = "B";
+            posX   = posX - offset;
+            posY   = posY + fontSize + textOffset;
+			if (T.mirror==1) {
+				posX = posX + fontSize + textOffset;
+			}
+         break;
+
+         case 180:
+            orient = 0;
+            hAlign = "R";
+            vAlign = "T";
+			posY = posY - textOffset;
+			if (T.mirror==1) {
+				hAlign = "L";
+			}
+         break;
+
+         case 270:
+            orient = 900;
+            hAlign = "R";
+            vAlign = "T";
+            posX   = posX + offset + textOffset;
+            posY   = posY - fontSize - textOffset;
+			if (T.mirror==1) {
+				posX = posX - fontSize - textOffset;
+			}
+         break;
+
+      }
+     	 
+      if(T.value != ">NAME" && T.value != ">VALUE" && T.layer != 95 && T.layer != 96)
+         printf("T %d %d %d %.0f %d %d %d %s N 0 %s %s\n", orient, posX, posY, 
+                                                 fontSize, 0, gatePos, 0, textString, hAlign, vAlign );       
+   } 
+}
+
+//------------------------------------------------------
+//write kicad pin entries
+//------------------------------------------------------
+void write_kikad_pins( UL_GATE G, int  transX, int transY, int gatePos )
+{
+   int pinCount = 1;
+   
+   G.symbol.pins(P) 
+   {
+      int    pinAngle   = 0;
+      char   orient     = 'L';
+      int    pinLength  = 0;
+      char   pinType    = 'U';
+      string pinShape   = "";
+      string pinContact = "";
+      int    posX       = P.x/g_Fact - transX;
+      int    posY       = P.y/g_Fact - transY;
+
+      if(pinCount >= 9999 )
+      {
+         dlgMessageBox("Canceled! To many pin numbers. (>9999)" ); 
+         exit(EXIT_FAILURE); 
+      }
+
+      pinAngle = P.angle;     
+
+      switch( pinAngle )
+      {
+         case 0:
+            orient = 'R';
+         break;
+	 
+         case 90:
+            orient = 'U';
+         break;
+	 
+         case 180:
+            orient = 'L';
+         break;
+	 
+         case 270:
+            orient = 'D';
+         break;
+	 
+         default:
+            orient = 'R';
+         break;
+      }
+           
+         switch(P.length)
+         {
+            case PIN_LENGTH_POINT:
+               pinLength = 0;
+            break;
+		  
+            case PIN_LENGTH_SHORT:
+               pinLength = 100;
+            break;
+		  
+            case PIN_LENGTH_MIDDLE:
+               pinLength = 200;
+            break;
+		  
+            case PIN_LENGTH_LONG:
+               pinLength = 300;
+            break;
+		  
+            default:
+               pinLength = 200;
+            break;
+         }
+	       
+         switch(P.direction)
+         {
+            case PIN_DIRECTION_NC:
+               pinType = 'U';
+            break;
+		  
+            case PIN_DIRECTION_IN:
+               pinType = 'I';
+            break;
+		  
+            case PIN_DIRECTION_OUT:
+               pinType = 'O';
+            break;
+		  
+            case PIN_DIRECTION_IO:
+               pinType = 'B';
+            break;
+		  
+            case PIN_DIRECTION_OC:
+               pinType = 'C';
+            break;
+		  
+            case PIN_DIRECTION_PWR:
+               pinType = 'W';
+            break;
+		  
+            case PIN_DIRECTION_PAS:
+               pinType = 'P';
+            break;
+		  
+            case PIN_DIRECTION_HIZ:
+               pinType = 'T';
+            break;
+		  
+            case PIN_DIRECTION_SUP:
+               pinType = 'w';
+            break;
+		  
+            default:
+               pinType = 'U';
+            break;
+         }
+	       
+         switch(P.function)
+         {
+            case PIN_FUNCTION_FLAG_NONE:
+               pinShape  = "";
+            break;
+		  
+            case PIN_FUNCTION_FLAG_DOT:
+               pinShape  = "I";
+            break;
+		  
+            case PIN_FUNCTION_FLAG_CLK:
+               pinShape  = "C";
+            break;
+		  
+            case PIN_FUNCTION_FLAG_CLK|PIN_FUNCTION_FLAG_DOT:
+               pinShape  = "IC";
+            break;
+		  
+            default:
+               pinShape  = "";
+            break;
+         }
+      	 
+      if(P.contact)
+      {
+         printf( "X %s %s %d %d %d %c %d %d %d %d %c %s\n", P.name, P.contact.name,
+                                                            posX, posY,
+                                                            pinLength, orient,
+                                                            40, 40, gatePos, 1,
+                                                            pinType, pinShape );
+      }
+      else
+      {
+         printf( "X %s %s %d %d %d %c %d %d %d %d %c %s\n", P.name, "~",
+                                                            posX, posY,
+                                                            pinLength, orient,
+                                                            40, 40, gatePos, 1,
+                                                            pinType, pinShape );
+      }
+   } 
+}
+//------------------------------------------------------
+//write rectangles entries
+//------------------------------------------------------
+void write_kikad_elements( UL_GATE G, int gatePos )
+{
+         int transX = G.x/g_Fact;
+         int transY = G.y/g_Fact;
+         
+         //Write the polygon entries
+         write_kikad_polygon( G, transX, transY, gatePos );
+         
+         //Write the arc and polygon (line) entries
+         write_kikad_arc_line( G, transX, transY, gatePos );  
+
+         //Write the rectangle entries
+         write_kikad_rectangle( G, transX, transY, gatePos );
+	 
+         //Write the circle entries
+         write_kikad_circle( G, transX, transY, gatePos );
+
+         //Write the text entries
+         write_kikad_text( G, transX, transY, gatePos );
+	 
+         //Write the pin entries
+         write_kikad_pins( G, transX, transY, gatePos );
+}
+
+//------------------------------------------------------
+//Write kicad alias entries
+//------------------------------------------------------
+void write_kikad_def_alias( UL_DEVICE DEV, UL_GATE G, string symbolName, int countPart )
+{
+   int prefix_X = 0;
+   int prefix_Y = 0;
+   int name_X   = 0;
+   int name_Y   = 0;  
+
+   char orient   = 'H';
+   char hAlign   = 'C';
+   char vAlign   = 'C';
+
+   string nameString   = "";
+   string prefixString = "";
+
+   G.symbol.texts(T) 
+   {
+         if( T.value == ">VALUE" || T.value == ">NAME" )
+         {
+            int transX = G.x/g_Fact;
+            int transY = G.y/g_Fact;
+            int angle = T.angle;
+            int posX   = 0;
+            int posY   = 0;
+            int offset = 0;
+            
+            switch( angle )
+            {
+               case 0:
+                  orient = 'H';
+                  hAlign = 'L';
+                  vAlign = 'B';
+               break;
+ 
+               case 90:
+                  offset = -(T.size / 2)/g_Fact;
+                  orient = 'V';
+                  hAlign = 'L';
+                  vAlign = 'B';
+               break;
+
+               case 180:
+                  orient = 'H';
+                  hAlign = 'R';
+                  vAlign = 'T';
+               break;
+
+               case 270:
+                  orient = 'V';
+                  hAlign = 'L';
+                  vAlign = 'B';
+               break;
+            }
+
+            if( T.value == ">VALUE" )
+            {
+               name_X = T.x/g_Fact - transX + offset;
+               name_Y = T.y/g_Fact - transY;
+            } 
+      
+            if( T.value == ">NAME" )
+            {
+               prefix_X = T.x/g_Fact - transX + offset;
+               prefix_Y = T.y/g_Fact - transY;
+            }
+	 }
+   }
+   if( DEV.prefix == "" )
+   {
+      if( DEV.name == "" )
+         printf("F0 \"%s\" %d %d %d %c %c %c %c\n", symbolName, name_X, name_Y, 50, 
+                                                    orient, 'V', hAlign, vAlign);
+   }
+   else
+   {
+      printf("F0 \"%s\" %d %d %d %c %c %c %c\n", DEV.prefix, prefix_X, prefix_Y, 
+                                                          50, orient, 'V', hAlign, vAlign);
+      if( DEV.name != "" )
+      {   
+         printf("F1 \"%s\" %d %d %d %c %c %c %c\n", symbolName, name_X, name_Y, 
+                                                    50, orient, 'V', hAlign, vAlign);
+         if( DEV.package )
+            printf("F2 \"%s-%s\" 0 150 50 H I C C\n", DEV.library, DEV.package.name);
+      }
+   }
+}
+
+
+
+//------------------------------------------------------
+//write lib header
+//------------------------------------------------------
+void write_kikad_lib( string fileName, UL_SCHEMATIC SCH )
+{
+	// write INDEX start tag
+	//printf("######################################################################\n");
+	//printf("# Name: %s\n", LIB.name);
+	//printf("# Headline: %s\n", LIB.headline);
+	//printf("######################################################################\n");
+	int oneRun = 0;
+
+	output(fileName, "wt") 
+	{
+		int t = time();
+		printf("EESchema-LIBRARY Version 2.3  %02d/%02d/%04d-%02d:%02d:%02d\n",
+		t2day(t), t2month(t)+1, t2year(t), t2hour(t), t2minute(t), t2second(t));  
+		printf("# Converted with eagle2kicad.ulp Version %.1f\n", VERSION);     
+
+		SCH.libraries(LIB) 
+		{
+			int countDevices = 0; 
+			LIB.devices(DEV)
+			{
+				countDevices++;
+			}
+	
+			printf("# Device count = %d\n", countDevices);
+
+			LIB.devicesets(DEVSET)
+			{
+				int countGates = 0; 
+
+				int drawPinInside = 1;
+				// retrieve amount of gates
+				DEVSET.gates(G) 
+				{ 
+					countGates++;
+					// do we need to show pin names, numbers or nothing at all?
+					G.symbol.pins(PIN) {
+						if (PIN.visible == PIN_VISIBLE_FLAG_OFF) {
+							drawPinname = 0;
+							drawPinnumber = 0;
+							break;
+						} else {
+							if (PIN.visible & PIN_VISIBLE_FLAG_PAD) {
+								drawPinname = 1;
+							}
+							if (PIN.visible & PIN_VISIBLE_FLAG_PIN) {
+								drawPinname = 1;
+							}
+							break;
+						}
+					}
+				}
+
+				string nameString   = DEVSET.name;
+				nameString = replace_string(nameString,"\"","");
+				string prefixString = DEVSET.prefix;
+				string drawPinnumberStr  = "N";
+				string drawPinnameStr  = "N";
+
+				if (drawPinnumber) {
+					drawPinnumberStr = "Y";
+				}
+
+				if (drawPinname) {
+					drawPinnameStr = "Y";
+				}
+
+				printf("#\n");
+				printf("# DEVSET Name: %s\n", nameString);
+				//if(DEVSET.package) {
+				//	printf("# Package Name: %s\n", DEVSET.package.name);
+				//}
+				//printf("# Dev Tech: %s\n", DEVSET.technologies);
+				printf("# Dev Prefix: %s\n", DEVSET.prefix);
+				printf("# Gate count = %d\n", countGates);
+				printf("#\n");
+
+				nameString = replace_string(nameString,"/","_");
+				
+				// check for missing prefix
+				if( DEVSET.prefix == "" )
+				{       
+					prefixString = DEVSET.library;
+					g_missingPrefix = 1;
+				}
+				// only do DEF for one symbol from the deviceset
+				DEVSET.devices(DEV) {
+					printf("DEF %s %s %d %d %s %s %d %c %c\n", prefixString + "_" + nameString, prefixString, 0, drawPinInside, drawPinnumberStr, drawPinnameStr, countGates, 'L', 'N');
+
+					int gatePos = 0; 
+					DEV.gates(G) 
+					{ 
+						gatePos++;
+
+						if( gatePos == 1) {
+							// Write kicad alias entries
+							write_kikad_def_alias(DEV, G, nameString, gatePos );
+							printf("DRAW\n");
+						}
+
+						write_kikad_elements(G, gatePos);
+					}
+
+					printf("ENDDRAW\n");
+					printf("ENDDEF\n");        
+					break;
+				}					
+			}
+		}
+		printf("#End Library\n");
+	}	      
+}
+
+string replaceChar(string text,char old,char new,int i) {
+	if (text=="") { 
+		return "";
+	}
+	for (;i<strlen(text);i++) {
+		if(text[i]==old) {
+			text[i]=new;
+		}
+	}
+	return text;
+}
+//------------------------------------------------------
+//write kicad schematic dotted wire notes
+//------------------------------------------------------
+void write_kicad_dotted_segments( UL_SHEET SH )
+{
+   SH.wires(W)
+   {
+      int x1 = W.x1/g_Fact + g_transX;
+      int y1 = W.y1/g_Fact + g_transY;
+      int x2 = W.x2/g_Fact + g_transX;
+      int y2 = W.y2/g_Fact + g_transY;
+
+      printf( "Wire Notes Line\n" );
+      printf( "%d %d %d %d\n", x1, -y1, x2, -y2 );
+   }
+}
+
+//------------------------------------------------------
+//write text of an instance smashed or not smashed
+//------------------------------------------------------
+void writeInstanceText( UL_TEXT T, int count )
+{
+   // Smashed text of an instance
+   int  x        = T.x / g_Fact + g_transX;
+   int  y        = T.y / g_Fact + g_transY;
+   int  angle    = T.angle;
+   int  fontSize = T.size/g_Fact;
+   char hAlign   = 'L';
+   char vAlign   = 'B';
+   char orient   = 'H';
+
+   switch(angle)
+   {
+      case 0:
+         orient = 'H';
+         hAlign = 'L';
+         vAlign = 'B';
+      break;
+
+      case 90:
+         orient = 'V';
+         hAlign = 'L';
+         vAlign = 'B';
+      break;
+
+      case 180:
+         orient = 'H';
+         hAlign = 'R';
+         vAlign = 'T';
+      break;
+
+      case 270:
+         orient = 'V';
+         hAlign = 'R';
+         vAlign = 'T';
+      break;
+   }
+  // printf("#UL_TEXT %f %d %d %d %d %d %d %s %d,%d\n",T.angle,T.font,T.layer,T.mirror, T.ratio, T.size, T.spin, T.value, T.x, T.y);
+   printf( "F %d \"%s\" %c %d %d %d %.4d %c %c\n", count, T.value, orient, x, -y, fontSize, 0, hAlign, vAlign );
+}
+void writeInstanceTextRotated( UL_TEXT T, int count, real r, int mirror, int posX, int posY )
+{
+   // Smashed text of an instance
+   int  x        = T.x / g_Fact + g_transX;
+   int  y        = T.y / g_Fact + g_transY;
+   int  angle    = T.angle;
+   int  fontSize = T.size/g_Fact;
+   char hAlign   = 'L';
+   char vAlign   = 'B';
+   char orient   = 'H';
+   
+   real rotation = r - 90;
+	// calculate text position from origin of component
+   int diffX = posX - x;
+   int diffY = posY + y;
+   
+   if (mirror!=0) {
+		diffX = -diffX;
+   }
+   // now rotate offset position about origin by rotation degrees
+   real toRad = PI/180;
+   int px = cos(rotation*toRad) * (diffX) - sin(rotation*toRad) * (diffY);
+   int py = sin(rotation*toRad) * (diffX) + cos(rotation*toRad) * (diffY);
+   
+   // calculate difference in coordinate so we can properly flip this coordinate system
+   y = posY + (px);
+   x = posX + (py);
+   
+   
+   switch(angle)
+   {
+      case 0:
+      case 180:
+		if (r == 0 || r == 180) {
+			orient = 'H';
+		} else {
+			orient = 'V';
+		}
+      break;
+
+      case 90:
+      case 270:
+		if (r == 0 || r == 180) {
+			orient = 'V';
+		} else {
+			orient = 'H';
+		}
+      break;
+   }
+   //#UL_TEXT 90.000000 1 94 1 8 12700 0 + 1250442,867664
+   //printf("#UL_TEXT %f %d %d %d %d %d %d %s %d,%d\n",T.angle,T.font,T.layer,T.mirror, T.ratio, T.size, T.spin, T.value, T.x, T.y);
+   printf( "F %d \"%s\" %c %d %d %d %.4d %c %c\n", count, T.value, orient, x, y, fontSize, 0, hAlign, vAlign );
+}
+
+//------------------------------------------------------
+//write text segments for nets and busses
+//------------------------------------------------------
+void writeTextSegments( UL_TEXT T )
+{
+   char   orient      = 0;
+   int    textAngle   = T.angle;
+   string textString  = T.value;
+   int    fontSize    = T.size/g_Fact;
+   int    posX        = T.x/g_Fact + g_transX;
+   int    posY        = T.y/g_Fact + g_transY;
+   int    offset      = ((T.size * strlen(T.value))/2)/g_Fact;
+                
+   switch( textAngle )
+   {
+      case 0:
+         orient = 0;
+      break;
+ 
+      case 90:
+         orient = 1;
+      break;
+
+      case 180:
+         orient = 0;
+      break;
+
+      case 270:
+         orient = 1;
+      break;
+   }
+   printf("Text Label %d %d %d %d ~\n", posX, -posY, orient, fontSize);
+   printf("%s\n", textString);
+}
+
+//------------------------------------------------------
+//write kicad schematic bus segment entries
+//------------------------------------------------------
+void write_kicad_bus_segments( UL_SHEET SH )
+{
+   SH.busses(N)
+   {
+      N.segments(SEG)
+      {
+         SEG.wires(W) 
+	 {
+            int x1 = W.x1/g_Fact + g_transX;
+            int y1 = W.y1/g_Fact + g_transY;
+            int x2 = W.x2/g_Fact + g_transX;
+            int y2 = W.y2/g_Fact + g_transY;
+
+	    printf( "Wire Bus Line\n" );
+	    printf( "%d %d %d %d\n", x1, -y1, x2, -y2 );
+	 }
+	 
+         SEG.junctions(J)
+	 {
+	    int x = J.x/g_Fact + g_transX;
+	    int y = J.y/g_Fact + g_transY;
+	    
+	    printf("Connection ~ %d %d\n", x, -y);
+	 }
+	 
+         SEG.texts(T)
+         {
+	    writeTextSegments(T);
+         }
+      }
+   }
+}
+
+//------------------------------------------------------
+//write kicad schematic wire segment entries
+//------------------------------------------------------
+void write_kicad_wire_segments( UL_SHEET SH )
+{
+   SH.nets(N)
+   {
+      N.segments(SEG)
+      {
+         SEG.wires(W) 
+         {
+            int x1 = W.x1/g_Fact + g_transX;
+            int y1 = W.y1/g_Fact + g_transY;
+            int x2 = W.x2/g_Fact + g_transX;
+            int y2 = W.y2/g_Fact + g_transY;
+
+            printf( "Wire Wire Line\n" );
+            printf( "%d %d %d %d\n", x1, -y1, x2, -y2 );
+         }
+	 
+         SEG.junctions(J)
+        {
+            int x = J.x/g_Fact + g_transX;
+            int y = J.y/g_Fact + g_transY;
+	    
+            printf("Connection ~ %d %d\n", x, -y);
+        }
+	 
+         SEG.texts(T)
+         {
+            writeTextSegments(T);
+         }
+      }
+   }
+}
+
+//------------------------------------------------------
+//write kicad schematic text entries
+//------------------------------------------------------
+void write_kicad_text_notes( UL_SHEET S )
+{
+   S.texts(T) 
+   {
+      char   orient      = 0;
+      int    textAngle   = T.angle;
+      string textString  = T.value;
+      int    fontSize    = T.size/g_Fact;
+      int    posX        = T.x/g_Fact + g_transX;
+      int    posY        = T.y/g_Fact + g_transY;
+      int    offset      = ((T.size * strlen(T.value))/2)/g_Fact;
+                
+      switch( textAngle )
+      {
+      case 0:
+         orient = 0;
+      break;
+ 
+      case 90:
+         orient = 1;
+      break;
+
+      case 180:
+         orient = 0;
+      break;
+
+      case 270:
+         orient = 1;
+      break;
+      }
+      printf("Text Notes %d %d %d %d ~\n", posX, -posY, orient, fontSize);
+      printf("%s\n", replaceChar(textString,'\n',' ',0));
+   } 
+}
+
+//------------------------------------------------------
+//write kicad schematic noconnect entries
+//------------------------------------------------------
+void write_kicad_noconnect( UL_SHEET SH )
+{
+   SH.parts(P)
+   {
+      P.instances(I)
+      {
+         I.gate.symbol.pins(PIN)
+         {
+            if( PIN.direction == PIN_DIRECTION_NC || PIN.name == "NC" )
+            {
+               int posX = PIN.x / g_Fact + g_transX;
+               int posY = PIN.y / g_Fact + g_transY;
+
+               printf( "NoConn ~ %d %d\n", posX, -posY );
+            }
+         }
+      }
+   }
+}
+
+//------------------------------------------------------
+//write kicad schematic component entries
+//------------------------------------------------------
+void write_kicad_components( UL_SHEET S )
+{
+   S.parts(P)
+   {
+     // if(P.device.package)
+      //{
+	     string prefixString = P.deviceset.prefix;
+		 
+		 if (prefixString=="") {
+			prefixString = P.deviceset.library;
+		 }	
+         string valueStr = P.deviceset.name;
+         string nameStr  = P.name;
+
+         if(nameStr == "")
+            nameStr= "NNN";
+         
+         if( strlen(valueStr) < 1 )
+            valueStr = "1uF";
+ 
+         // Replace all spaces with '~'
+         for (int idx = 0; valueStr[idx]; ++idx)
+         {
+            if( valueStr[idx] == ' ' || valueStr[idx] == '/')
+               valueStr[idx] = '_';
+         }
+     
+         P.instances(I)   
+         {
+			printf( "$Comp\n" );
+			printf( "L %s %s\n", prefixString + "_" + valueStr, nameStr );
+			printf( "U %d %d %X\n", 1, 1, time() );
+            char orient = 'H';
+            char hAlign = 'L';
+            char vAlign = 'T';
+            int posX = I.x / g_Fact + g_transX;
+            int posY = I.y / g_Fact + g_transY;
+            int count = 0;
+			int a = 1, b = 0, c = 0, d = -1;
+        
+            printf( "P %d %d\n", posX, -posY );
+        
+            I.texts(T)
+            {   
+				if (T.layer==94) {
+					continue;
+				}
+               // Smashed text of an instance
+               writeInstanceTextRotated( T, count, I.angle, I.mirror, posX, -posY );
+               count++;
+            }
+       
+            count = 0;
+           
+			I.gate.symbol.texts(T)
+			{
+				if (T.layer==94) {
+					continue;
+				}
+			   // Non smashed text of an instance
+			   writeInstanceTextRotated( T, count, I.angle, I.mirror, posX, -posY );
+				   count++;  
+			}
+            //printf("F 2 \"%s\" V %d %d 70 0000 %c %cNN\n", P.device.package.name, 
+            //                                             posX, -posY, hAlign, vAlign );
+			
+			// calculate orientation matrix
+			if (I.mirror==0) {
+				if (I.angle == 90) {
+					a = 0; b = -1;
+					c = -1; d = 0;
+				} else if (I.angle == 180) {
+					a = -1; b = 0;
+					c = 0; d = 1;
+				} else if (I.angle == 270) {
+					a = 0; b = 1;
+					c = 1; d = 0;
+				}
+			} else {
+				a = -1; b = 0;
+				c = 0; d = -1;
+				if (I.angle == 90) {
+					a = 0; b = 1;
+					c = -1; d = 0;
+				} else if (I.angle == 180) {
+					a = 1; b = 0;
+					c = 0; d = 1;
+				} else if (I.angle == 270) {
+					a = 0; b = -1;
+					c = 1; d = 0;
+				}
+			}
+            printf( "\t%-4d %-4d %-4d\n", 1, posX, -posY );
+            printf( "\t%-4d %-4d %-4d %-4d\n", a, b, c, d );
+			printf( "$EndComp\n" );
+         }
+     // } else {
+//		printf("# MISSING PACKAGE %s\n",P.name);
+	  //}
+   }
+}
+
+//------------------------------------------------------
+//write kicad schematic header
+//------------------------------------------------------
+void write_kicad_header( UL_SCHEMATIC SCH )
+{
+   int totalSheets = 0;
+   int t = time();
+   
+   printf("EELAYER %d %d\n", 23, 0 );
+   printf("EELAYER END\n");
+   
+   if( g_selected >= 0 && g_selected < 16 )
+      printf("$Descr %s %s\n", g_sheetSizeArray[g_selected], g_sheetSizes[g_selected]);
+   else
+      printf("$Descr User %d %d\n", g_dimX, g_dimY );
+   
+   SCH.sheets(S)
+   {
+      ++totalSheets;
+   } 
+     
+   SCH.sheets(S)
+   {
+      printf("Sheet %d %d\n", S.number, totalSheets);
+   }
+
+   if( g_strTitle == "" )
+   {
+      int charPos = strrchr(SCH.name, '/');
+      g_strTitle = strsub(SCH.name, charPos+1, strlen(SCH.name)-charPos);   
+   }
+   
+   printf("Title \"%s\"\n", g_strTitle );
+
+   if(g_strDate == "")   
+      printf("Date \"%d %s %d\"\n", t2day(t), monthArray[t2month(t)], t2year(t) );
+   else
+      printf("Date \"%s\"\n", g_strDate );
+      
+   printf("Rev \"%s\"\n", g_strRev );
+   printf("Comp \"%s\"\n", g_strComp );
+   printf("Comment1 \"%s\"\n", g_comment1 );
+   printf("Comment2 \"%s\"\n", g_comment2 );
+   printf("Comment3 \"%s\"\n", g_comment3 );
+   printf("Comment4 \"%s\"\n", g_comment4 );
+   printf("$EndDescr\n");
+}
+
+void calculateTranslations(UL_AREA area) {
+	// given the area of the sheet
+	// and size of the output sheet
+	// calculate offset to center sheet inside output
+	string pageDimension[];
+	int n = strsplit(pageDimension, g_sheetSizes[g_selected], ' ');
+   
+	int width = strtol(pageDimension[0])-1000;
+	int height = strtol(pageDimension[1])-1000;
+	
+	// calculate offset based on area width and height
+	int x1 = area.x1 / g_Fact, x2 = area.x2 / g_Fact, y1 = area.y1 / g_Fact, y2 = area.y2 / g_Fact;
+	int sheetWidth = x2 - x1;
+	int sheetHeight = y2 - y1;
+	
+	// center sheet within output
+	int xOffset = ((width - sheetWidth) / 2) + 500;
+	int yOffset = ((height-sheetHeight)/2) - 500;
+	// align on the grid
+	xOffset = floor(xOffset/50) * 50;
+	yOffset = floor(yOffset/50) * 50;
+	x1 = floor(x1/50) * 50;
+	y1 = floor(y1/50) * 50;
+	width = floor(width/50) * 50;
+	height = floor(height/50) * 50;
+	
+	g_transY = -height + yOffset - y1; //-(yOffset + height);
+	g_transX = xOffset - x1;
+}
+//------------------------------------------------------
+//write index of modules
+//------------------------------------------------------
+void write_kicad_project( string fileName, string name )
+{
+	string projFile = filesetext(fileName,".pro");
+	output(projFile, "Fwt")
+	{
+        int t = time();
+		printf("update=%02d/%02d/%04d %02d:%02d:%02d\n", t2day(t), t2month(t)+1, t2year(t), t2hour(t), t2minute(t), t2second(t));  
+		printf("last_client=kicad\n");
+		printf("[eeschema]\n");
+		printf("version=1\n");
+		printf("LibDir=\n");
+		printf("[eeschema/libraries]\n");
+		printf("LibName1=%s\n",name);
+	}
+}
+void write_kicad_schematics( string fileName )
+{
+	fileName = filesetext(replaceChar(filesetext(fileName,""),'.','_',strrstr(fileName,"/")),".sch");
+	string cacheFile = filesetext(fileName,"-cache.lib");
+	string file = filename(filesetext(cacheFile,""));
+	string basePath = filedir(fileName);
+	write_kicad_project(fileName,file);
+   output(fileName, "Fwt") 
+   {
+      if(schematic)
+      {
+         schematic(SCH) 
+         { 
+			string libString;
+			write_kikad_lib(cacheFile,SCH);
+            int t = time();
+            printf("EESchema Schematic File Version 1\n"); 
+            printf("LIBS:");
+            SCH.libraries(LIB)
+            {
+               string tmpString = "";
+               sprintf(tmpString, "%s,", LIB.name);
+			   
+               libString = libString + tmpString;
+            }	
+			libString = libString + ".\\" + file + "-cache";
+            printf("%s\n",libString);     
+
+            SCH.sheets(SH)
+            {
+				calculateTranslations(SH.area);
+				
+               write_kicad_header(SCH);   
+               write_kicad_text_notes( SH );
+	       write_kicad_components( SH );
+	       write_kicad_noconnect( SH );
+               write_kicad_wire_segments( SH );
+               write_kicad_bus_segments( SH );
+	       write_kicad_dotted_segments( SH );
+            }
+            printf("$EndSCHEMATC\n");
+         }
+      }  
+   }   
+}
+
+
+//------------------------------------------------------
+// Global mod_ and lib_name
+//------------------------------------------------------
+string sch_name ;   
+
+//------------------------------------------------------
+// Y axis translation factor
+//------------------------------------------------------
+void setTransY()
+{
+   string pageDimension[];
+   int n = strsplit(pageDimension, g_sheetSizes[g_selected], ' ');
+   
+   g_transY = strtol(pageDimension[1]) - 500;
+}
+
+//------------------------------------------------------
+// Select the path where the schematic will be saved 
+//------------------------------------------------------
+void openSchematicPath( string startPath )
+{
+   string dirName = "";
+   string stringArray[];
+   dirName = dlgDirectory("Select a directory", startPath);
+   
+   if( dirName != "" )
+   {
+      schematic(S) 
+      {
+         int n = 0;
+         string tmpName = S.name; 
+         int nr = strsplit(stringArray, tmpName, '/');
+         sch_name = dirName + "/" + stringArray[nr-1];
+         sch_name = strsub(sch_name , 0, strlen(sch_name) - 4) + "_.sch";
+      }
+   }
+}
+
+//------------------------------------------------------
+// main program 
+//------------------------------------------------------
+int result;
+int space = 10;
+string ref;
+string titleStr;
+
+sprintf(titleStr, "Export Eagle schematic and symbols to KiCAD. Version: %.1f", VERSION);
+
+if (schematic)  
+{
+   schematic(S) 
+   {
+      sch_name = strsub(S.name, 0, strlen(S.name) - 4) + "_.sch";
+   }
+}
+else 
+{
+   dlgMessageBox("Please run from schematic editor." ); 
+   exit(EXIT_FAILURE);
+}
+
+result = dlgDialog(titleStr)
+{
+	  
+   dlgTabWidget 
+   {
+      //=====================TAB1=============================================================
+      dlgTabPage("Output:") 
+      {     
+
+        dlgHBoxLayout dlgSpacing(400);
+        dlgStretch(0);
+	dlgSpacing(space);
+        dlgLabel("Export to file:");
+				dlgStretch(0);
+		        dlgHBoxLayout
+	{
+	   dlgSpacing(space);
+           dlgStringEdit(sch_name);
+	   dlgSpacing(space);
+	   dlgPushButton("...") openSchematicPath("C:\\");
+	   dlgSpacing(space);
+	}
+		dlgLabel("<p>This script will export the current schematic, and all symbols used, to KiCAD format files.</p><p>Currently schematics containing multi-gate symbols are not very well supported. There are likely other issues.</p><p>See <a href='http://www.circuitbee.com/help/eagleimport'>http://www.circuitbee.com/help/eagleimport</a> for more information.</p><p>This script is based on the original eagle2kicad_sch.ulp and eagle2kicad-0.9b.ulp scripts by  Dmitri N. Sytov sdn (at) openhardware.ru and juergen.messerer (at) freesurf.ch found on Eagle website. Improvements have been made to improve conversion accuracy, and the two scripts have been combined to ease export.</p>");
+        dlgStretch(0);
+
+	dlgStretch(10);
+     }
+     //=====================TAB2=============================================================
+      dlgTabPage("Sheet:") 
+      { 
+         dlgSpacing(space);
+	dlgHBoxLayout
+	{
+	   dlgSpacing(space);
+	   dlgComboBox(g_comboBoxArray, g_selected)
+	   { 
+              setTransY();
+	   }
+	   dlgStretch(1);
+	   dlgSpacing(space);
+	}
+	dlgSpacing(space);
+	
+	dlgGroup("User defined:")
+	{
+	
+	   dlgHBoxLayout
+	   {
+              dlgLabel("Size X:");
+	      dlgIntEdit(g_dimX, 0, 99999);
+	      
+	      dlgSpacing(space);
+	      
+	      dlgLabel("Size Y:");
+	      dlgIntEdit(g_dimY, 0, 99999);
+	    }
+	 }
+      }
+      //=====================TAB1=============================================================
+      dlgTabPage("Comments:") 
+      {  
+         dlgHBoxLayout
+         {
+            dlgLabel("Title:");
+	          dlgStringEdit(g_strTitle);
+	       }
+	       
+	       dlgHBoxLayout
+         {
+            dlgLabel("Date:");
+	          dlgStringEdit(g_strDate);
+	       }
+	 
+         dlgHBoxLayout
+         {
+            dlgLabel("Rev:");
+            dlgStringEdit(g_strRev);
+         }
+	 
+         dlgHBoxLayout
+         {
+            dlgLabel("Comp:");
+            dlgStringEdit(g_strComp);
+         }
+	 
+         dlgHBoxLayout
+         {
+            dlgLabel("Comment1:");
+            dlgStringEdit(g_comment1);
+         }
+	 
+         dlgHBoxLayout
+         {
+            dlgLabel("Comment2:");
+            dlgStringEdit(g_comment2);
+         }
+	 
+         dlgHBoxLayout
+         {
+            dlgLabel("Comment3:");
+            dlgStringEdit(g_comment3);
+         }
+	 
+         dlgHBoxLayout
+         {
+            dlgLabel("Comment4:");
+            dlgStringEdit(g_comment4);
+         }  
+      }
+   }
+   dlgVBoxLayout 
+   {
+      dlgStretch(0);
+      dlgHBoxLayout 
+      {
+         dlgStretch(1);
+         dlgPushButton("+OK") dlgAccept();
+	 dlgSpacing(space);
+         dlgPushButton("-Cancel") dlgReject();
+         dlgStretch(0);
+	 dlgSpacing(space);
+      }
+      dlgStretch(10);
+   };
+};
+
+  if(result)
+  {
+    write_kicad_schematics(sch_name);
+  }
+  else 
+    dlgMessageBox("Canceled!" ); 
+    
+  exit(EXIT_SUCCESS);
