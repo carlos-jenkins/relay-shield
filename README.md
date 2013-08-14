@@ -14,6 +14,13 @@ Features
   - Manual switch.
   - Panel/box ready.
 
+Schematic
+---------
+
+![Schematic](https://raw.github.com/carlos-jenkins/relay-shield/master/board/schematic/relay_shield_v0.1.png)
+
+[Schematic PDF] [].
+
 License
 -------
 
@@ -35,3 +42,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   [1]: https://www.sparkfun.com/products/10924
   [2]: https://www.sparkfun.com/products/11005
   [Spark Core]: https://www.sparkdevices.com/
+  [Schematic PDF]: https://raw.github.com/carlos-jenkins/relay-shield/master/board/schematic/relay_shield_v0.1.pdf
