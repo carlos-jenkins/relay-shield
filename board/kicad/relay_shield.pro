@@ -1,5 +1,5 @@
-update=Wed 14 Aug 2013 01:36:56 CST
-last_client=cvpcb
+update=Wed 14 Aug 2013 02:22:47 CST
+last_client=eeschema
 version=1
 [pcbnew]
 version=1
@@ -41,6 +41,11 @@ LibName17=relay_jqx_15f
 LibDir=lib
 [general]
 version=1
+[cvpcb]
+version=1
+NetIExt=net
+[cvpcb/libraries]
+EquName1=devcms
 [eeschema]
 version=1
 LibDir=lib
@@ -81,9 +86,4 @@ LibName28=atmel
 LibName29=contrib
 LibName30=valves
 LibName31=spark_core
-LibName32=/home/cjenkins/tmp/SparkFun-Electromechanical
-[cvpcb]
-version=1
-NetIExt=net
-[cvpcb/libraries]
-EquName1=devcms
+LibName32=relay-jqx-15f

@@ -1,5 +1,5 @@
-Relay Shield for Spark Core
-===========================
+Advanced Relay Shield for Spark Core
+====================================
 
 [Spark Core] [] is a open source hardware Arduino compatible tiny Wi-Fi
 development board that makes it easy to create internet-connected hardware.
