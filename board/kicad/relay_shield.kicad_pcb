@@ -61,7 +61,7 @@
       (layerselection 284196865)
       (usegerberextensions true)
       (excludeedgelayer true)
-      (linewidth 0.150000)
+      (linewidth 0.152400)
       (plotframeref false)
       (viasonmask false)
       (mode 1)
@@ -82,7 +82,7 @@
       (mirror false)
       (drillshape 0)
       (scaleselection 1)
-      (outputdirectory ../pcb/v0.1/))
+      (outputdirectory ../pcb/v0.1/gerber/))
   )
 
   (net 0 "")

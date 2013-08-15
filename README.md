@@ -49,5 +49,5 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   [1]: https://www.sparkfun.com/products/10924
   [2]: https://www.sparkfun.com/products/11005
   [Spark Core]: https://www.sparkdevices.com/
-  [Schematic PDF]: https://github.com/carlos-jenkins/relay-shield/raw/master/board/schematic/v0.1/relay_shield.pdf
+  [Schematic in PDF]: https://github.com/carlos-jenkins/relay-shield/raw/master/board/schematic/v0.1/relay_shield.pdf
   [PCB in PDF]: https://www.uppss.com
