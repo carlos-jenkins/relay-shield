@@ -17,7 +17,7 @@ Features
 Schematic
 ---------
 
-![Schematic](https://raw.github.com/carlos-jenkins/relay-shield/master/board/schematic/relay_shield_v0.1.png)
+![Schematic](https://raw.github.com/carlos-jenkins/relay-shield/master/board/schematic/v0.1/relay_shield.png)
 
 [Schematic PDF] [].
 
@@ -42,4 +42,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   [1]: https://www.sparkfun.com/products/10924
   [2]: https://www.sparkfun.com/products/11005
   [Spark Core]: https://www.sparkdevices.com/
-  [Schematic PDF]: https://raw.github.com/carlos-jenkins/relay-shield/master/board/schematic/relay_shield_v0.1.pdf
+  [Schematic PDF]: https://github.com/carlos-jenkins/relay-shield/raw/master/board/schematic/v0.1/relay_shield.pdf
