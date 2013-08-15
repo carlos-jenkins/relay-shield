@@ -1,4 +1,4 @@
-update=Wed 14 Aug 2013 13:43:33 CST
+update=Wed 14 Aug 2013 18:11:08 CST
 last_client=pcbnew
 version=1
 [general]
@@ -53,21 +53,21 @@ EquName1=devcms
 version=1
 LastNetListRead=
 UseCmpFile=1
-PadDrill=0.600000000000
-PadDrillOvalY=0.600000000000
-PadSizeH=1.500000000000
-PadSizeV=1.500000000000
+PadDrill=1.016000000000
+PadDrillOvalY=1.016000000000
+PadSizeH=1.524000000000
+PadSizeV=1.524000000000
 PcbTextSizeV=1.500000000000
 PcbTextSizeH=1.500000000000
 PcbTextThickness=0.300000000000
-ModuleTextSizeV=1.000000000000
-ModuleTextSizeH=1.000000000000
-ModuleTextSizeThickness=0.150000000000
+ModuleTextSizeV=1.016000000000
+ModuleTextSizeH=1.016000000000
+ModuleTextSizeThickness=0.203200000000
 SolderMaskClearance=0.000000000000
 SolderMaskMinWidth=0.000000000000
 DrawSegmentWidth=0.200000000000
 BoardOutlineThickness=0.100000000000
-ModuleOutlineThickness=0.150000000000
+ModuleOutlineThickness=0.203200000000
 [pcbnew/libraries]
 LibDir=lib
 LibName1=sockets
