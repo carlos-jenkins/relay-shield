@@ -82,7 +82,7 @@
       (mirror false)
       (drillshape 0)
       (scaleselection 1)
-      (outputdirectory ../pcb/gerber/v0.1/))
+      (outputdirectory ../pcb/v0.1/))
   )
 
   (net 0 "")
