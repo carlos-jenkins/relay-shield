@@ -26,7 +26,7 @@ PCB
 
 ![PCB](https://raw.github.com/carlos-jenkins/relay-shield/master/board/pcb/v0.1/relay_shield.png)
 
-[PCB in PDF] [].
+[PCB on OSHPark] [].
 
 License
 -------
@@ -50,4 +50,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   [2]: https://www.sparkfun.com/products/11005
   [Spark Core]: https://www.sparkdevices.com/
   [Schematic in PDF]: https://github.com/carlos-jenkins/relay-shield/raw/master/board/schematic/v0.1/relay_shield.pdf
-  [PCB in PDF]: https://www.uppss.com
+  [PCB on OSHPark]: http://oshpark.com/shared_projects/GxOQRuas
