@@ -39,7 +39,7 @@ encoding utf-8
 Sheet 1 1
 Title "Advanced Relay Shield for Spark Core"
 Date "14 aug 2013"
-Rev "0.1"
+Rev "1.0"
 Comp "Carlos Jenkins"
 Comment1 ""
 Comment2 ""

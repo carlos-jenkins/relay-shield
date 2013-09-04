@@ -9,7 +9,7 @@ the current flow.
 Features
 --------
 
-  - Rated up to 220VAC @ 20A ([part] [1]).
+  - Rated up to 220VAC @ 20A (4400W) ([part] [1]).
   - Current sensing using a CT sensor ([part] [2]).
   - Manual switch.
   - Panel/box ready.
@@ -17,14 +17,14 @@ Features
 Schematic
 ---------
 
-![Schematic](https://raw.github.com/carlos-jenkins/relay-shield/master/board/schematic/v0.1/relay_shield.png)
+![Schematic](https://raw.github.com/carlos-jenkins/relay-shield/master/board/schematic/v1.0/relay_shield.png)
 
 [Schematic in PDF] [].
 
 PCB
 ---
 
-![PCB](https://raw.github.com/carlos-jenkins/relay-shield/master/board/pcb/v0.1/relay_shield.png)
+![PCB](https://raw.github.com/carlos-jenkins/relay-shield/master/board/pcb/v1.0/relay_shield.png)
 
 [PCB on OSHPark] [].
 
@@ -49,5 +49,5 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   [1]: https://www.sparkfun.com/products/10924
   [2]: https://www.sparkfun.com/products/11005
   [Spark Core]: https://www.sparkdevices.com/
-  [Schematic in PDF]: https://github.com/carlos-jenkins/relay-shield/raw/master/board/schematic/v0.1/relay_shield.pdf
-  [PCB on OSHPark]: http://oshpark.com/shared_projects/GxOQRuas
+  [Schematic in PDF]: https://github.com/carlos-jenkins/relay-shield/raw/master/board/schematic/v1.0/relay_shield.pdf
+  [PCB on OSHPark]: http://oshpark.com/shared_projects/E1XSjK44
